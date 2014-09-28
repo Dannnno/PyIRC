@@ -24,15 +24,38 @@ If not, see <http://opensource.org/licenses/MIT>
 """
 
 """Program to work on and develop an IRC client in python using the builtin
-sockets module
+socket module and the builtin select module
 """
 
 import sys
 import socket
 import select
 import time
+import copy_reg
+import types
 import multiprocessing as mp
 from functools import partial
+
+
+## Thank you to Steven Bethard for his solution here
+## http://bytes.com/topic/python/answers/552476-why-cant-you-pickle-instancemethods
+def _pickle_method(method):
+    func_name = method.im_func.__name__
+    obj = method.im_self
+    cls = method.im_class
+    return _unpickle_method, (func_name, obj, cls)
+
+def _unpickle_method(func_name, obj, cls):
+    for cls in cls.mro():
+        try:
+            func = cls.__dict__[func_name]
+        except KeyError:
+            pass
+        else:
+            break
+    return func.__get__(obj, cls)
+
+copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 
 
 class IRC_member(object):
@@ -277,15 +300,22 @@ class IRC_member(object):
         ready, _, _ = select.select(self.servers.values(), [], [], 5)
         
         if ready:
+            for i in range(len(ready)):
+                for key, value in self.servers.iteritems():
+                    if ready[i] == value:
+                        ready[i] = key
             pool = mp.Pool()
             try:
-                for data in pool.map(partial(self.receive_message,
-                                             bsize=buff_size),
-                                     ready):
-                    ## TODO: Better way of displaying it
-                    ## This will eventually be displayed in the proper tab for
-                    ## a given channel
-                    print data
+                ## ISSUE 1
+                #for data in pool.map(partial(self.receive_message,
+                #                              bsize=buff_size),
+                #                     ready):
+                #    ## TODO: Better way of displaying it
+                #    ## This will eventually be displayed in the proper tab for
+                #    ## a given channel
+                #    print data
+                for host in ready:
+                    print self.receive_message(host, bsize=buff_size)
             except socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to get messages"
@@ -294,11 +324,12 @@ class IRC_member(object):
         else:
             return 0
             
-    def receive_message(self, sock, bsize):
+    def receive_message(self, hostname, bsize=4096):
         """Recieves messages from a single server.  Has already checked that 
         there is a message waiting
         """
         reply = ""
+        sock = self.servers[hostname]
         
         while True:
             try:
@@ -315,9 +346,12 @@ class IRC_member(object):
                         line = " ".join(line)
                         reply += line
             except socket.error as (errnum, strerr):
+                ### Err numbers:
+                ###  10035: A non-blocking socket operation couldn't be completed immediately
                 print errnum, strerr
                 print "Failed to get message"
                 return 1
+                #return reply
         
         return reply
         
@@ -328,7 +362,7 @@ class IRC_member(object):
 if __name__ == "__main__":
     NICK = "nick" # raw_input("Please enter your nickname")
     HOST = "irc.foonetic.net" # raw_input("Please enter your desired server")
-    CHAN = "#poke-eternal" # raw_input("Please enter your desired channel")
+    CHAN = "#temp-channel" # raw_input("Please enter your desired channel")
     
     me = IRC_member(NICK)
     me.join_server(HOST)
@@ -344,3 +378,4 @@ if __name__ == "__main__":
         end = time.time()
         if (end-start) < 30:
             time.sleep(int(30-(end-start)))
+        i += 1
