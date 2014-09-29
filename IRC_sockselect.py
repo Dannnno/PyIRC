@@ -23,35 +23,12 @@ You should have received a copy of the MIT License along with this program.
 If not, see <http://opensource.org/licenses/MIT>
 """
 
-import copy_reg
 from functools import partial
-import multiprocessing as mp
+from multiprocessing import dummy
 import select
 import socket
 import time
-import types
-import pickle
-
-
-## Thank you to Steven Bethard for his solution here
-## http://bytes.com/topic/python/answers/552476-why-cant-you-pickle-instancemethods
-def _pickle_method(method):
-    func_name = method.im_func.__name__
-    obj = method.im_self
-    cls = method.im_class
-    return _unpickle_method, (func_name, obj, cls)
-
-def _unpickle_method(func_name, obj, cls):
-    for cls in cls.mro():
-        try:
-            func = cls.__dict__[func_name]
-        except KeyError:
-            pass
-        else:
-            break
-    return func.__get__(obj, cls)
-
-copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
+import threading
 
 
 class IRC_member(object):
@@ -87,6 +64,10 @@ class IRC_member(object):
         # {"some_server": {nick: "Mynick", realname: "realname", etc}}
         # All values not in this are assumed to be self.nick, etc
         self.serv_to_data = {}
+        
+        ## Used to get the replies from all sockets
+        self.lock = threading.Lock()
+        self.replies = {}
         
     def send_server_message(self, hostname, message): 
         """Sends a message to a server"""
@@ -204,7 +185,7 @@ class IRC_member(object):
             sock.connect((ip, port))
             self.servers[hostname] = sock
             self.serv_to_chan[hostname] = []
-            sock.settimeout(2)
+            #sock.settimeout(2)
             sock.setblocking(0)
             self.send_server_message(hostname, "NICK {}\r\n".format(nick))
             self.send_server_message(hostname, 
@@ -299,25 +280,15 @@ class IRC_member(object):
         ready, _, _ = select.select(self.servers.values(), [], [], 5)
         
         if ready:
-            for i in range(len(ready)):
-                for key, value in self.servers.iteritems():
-                    if ready[i] == value:
-                        ready[i] = key
-                print ready[i], type(ready[i])
-            # pool = mp.Pool()
             try:
-                ## ISSUE 1
-                #for data in pool.map(partial(self.receive_message,
-                #                              bsize=buff_size),
-                #                     ready):
-                #    ## TODO: Better way of displaying it
-                #    ## This will eventually be displayed in the proper tab for
-                #    ## a given channel
-                #    print data
-                ## This is fine for now, but I really need to have something 
-                ## better if I'm going to be connected to multiple servers/channels
-                for host in ready: 
-                    print self.receive_message(host, bsize=buff_size)
+                pool = dummy.Pool()
+                pool.map(partial(self.receive_message,
+                                 bsize=buff_size),
+                         ready)
+                with self.lock:
+                    replies, self.replies = self.replies, {}
+                for server, reply in replies:
+                    print server, ":\n\n", reply, "\n\n"
             except socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to get messages"
@@ -352,10 +323,20 @@ class IRC_member(object):
                 ###  10035: A non-blocking socket operation couldn't be completed immediately
                 print errnum, strerr
                 print "Failed to get message"
-                return 1
-                #return reply
+                with self.lock:
+                    try:
+                        self.replies[hostname] += (reply,)
+                    except KeyError:
+                        self.replies[hostname] = (reply,)
         
-        return reply
+        with self.lock:
+            try:
+                self.replies[hostname] += (reply,)
+            except KeyError:
+                self.replies[hostname] = (reply,)
+
+        
+        
         
     def __del__(self):
         for sock in self.servers.values():

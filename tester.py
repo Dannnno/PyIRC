@@ -37,8 +37,8 @@ class a(object):
         return "1"
         
     def oth_method(self):
-        pool = mp.Pool()
-        print pickle.dumps(self.method)
+        pool = mp.dummy.Pool()
+        #print pickle.dumps(self.method, -1)
         a = pool.map(self.method, self.servers.keys())
         pool.close()
         pool.join()
