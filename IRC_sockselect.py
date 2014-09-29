@@ -23,18 +23,14 @@ You should have received a copy of the MIT License along with this program.
 If not, see <http://opensource.org/licenses/MIT>
 """
 
-"""Program to work on and develop an IRC client in python using the builtin
-socket module and the builtin select module
-"""
-
-import sys
-import socket
-import select
-import time
 import copy_reg
-import types
-import multiprocessing as mp
 from functools import partial
+import multiprocessing as mp
+import select
+import socket
+import time
+import types
+import pickle
 
 
 ## Thank you to Steven Bethard for his solution here
@@ -103,7 +99,7 @@ class IRC_member(object):
         
         sock = self.servers[hostname]
         try:
-            sock.send(message.rstrip() + "\r\n")
+            sock.send("{} \r\n".format(message.rstrip()))
         except socket.error as (errnum, strerr):
             print errnum, strerr
             print "Failed to send message {}".format(
@@ -132,7 +128,8 @@ class IRC_member(object):
         else:
             try:
                 sock = self.servers[hostname]
-                sock.send("PRIVMSG " + chan_name + " :" + message.rstrip() + "\r\n")
+                sock.send("PRIVMSG {} :{}\r\n".format(chan_name,
+                                                       message.rstrip()))
             except socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to send message {}".format(
@@ -157,7 +154,7 @@ class IRC_member(object):
         
         sock = self.servers[hostname]
         try:
-            sock.send("PRIVMSG " + username + " :" + message.rstrip() + "\r\n")
+            sock.send("PRIVMSG {} :{}\r\n".format(username, message.rstrip()))
         except socket.error as (errnum, strerr):
             print errnum, strerr
             print "Failed to send message {}".format(
@@ -258,7 +255,8 @@ class IRC_member(object):
             
         if chan_name.startswith("#"):
             try:
-                self.send_server_message(hostname, "JOIN {}\r\n".format(chan_name))
+                self.send_server_message(hostname, 
+                                         "JOIN {}\r\n".format(chan_name))
             except socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to connect to {}".format(chan_name)
@@ -283,7 +281,8 @@ class IRC_member(object):
             
         else:
             try:
-                self.send_server_message(hostname, "PART {}\r\n".format(chan_name))
+                self.send_server_message(hostname, 
+                                         "PART {}\r\n".format(chan_name))
             except self.socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to leave {}".format(chan_name)
@@ -304,7 +303,8 @@ class IRC_member(object):
                 for key, value in self.servers.iteritems():
                     if ready[i] == value:
                         ready[i] = key
-            pool = mp.Pool()
+                print ready[i], type(ready[i])
+            # pool = mp.Pool()
             try:
                 ## ISSUE 1
                 #for data in pool.map(partial(self.receive_message,
@@ -314,7 +314,9 @@ class IRC_member(object):
                 #    ## This will eventually be displayed in the proper tab for
                 #    ## a given channel
                 #    print data
-                for host in ready:
+                ## This is fine for now, but I really need to have something 
+                ## better if I'm going to be connected to multiple servers/channels
+                for host in ready: 
                     print self.receive_message(host, bsize=buff_size)
             except socket.error as (errnum, strerr):
                 print errnum, strerr
@@ -360,9 +362,11 @@ class IRC_member(object):
             sock.close()
         
 if __name__ == "__main__":
-    NICK = "nick" # raw_input("Please enter your nickname")
-    HOST = "irc.foonetic.net" # raw_input("Please enter your desired server")
-    CHAN = "#temp-channel" # raw_input("Please enter your desired channel")
+    NICK = "nick" # raw_input("Please enter your nickname ")
+    #USER = raw_input("Please enter your user name ")
+    #REAL = raw_input("Please enter your 'real' name ")
+    HOST = "irc.foonetic.net" # raw_input("Please enter your desired server ")
+    CHAN = "#temp-channel" # raw_input("Please enter your desired channel ")
     
     me = IRC_member(NICK)
     me.join_server(HOST)
@@ -376,6 +380,6 @@ if __name__ == "__main__":
             me.send_channel_message(HOST, CHAN, msg)
         me.receive_all_messages()
         end = time.time()
-        if (end-start) < 30:
-            time.sleep(int(30-(end-start)))
+        if (end-start) < 5:
+            time.sleep(int(5-(end-start)))
         i += 1
