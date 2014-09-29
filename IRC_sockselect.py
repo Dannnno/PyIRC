@@ -49,19 +49,27 @@ class IRC_member(object):
             self.__dict__[key] = value
             
         # This is a mapping of server name to socket being used
-        # {"some_server": socket1,
+        # {
+        #  "some_server": socket1,
         #  "other_server": socket2
         # }
         self.servers = {}
         
         # This is a mapping of server name to channel name
-        # {"some_server": ["#a_channel", "#another-channel"],
+        # {
+        #  "some_server": ["#a_channel", "#another-channel"],
         #  "other_server": ["#lonely-channel"]
         # }
         self.serv_to_chan = {}
         
         # This is a mapping of server name to information if it differs
-        # {"some_server": {nick: "Mynick", realname: "realname", etc}}
+        # {
+        #  "some_server": {
+        #                  nick: "Mynick", 
+        #                  realname: "realname", 
+        #                  etc
+        #                 }
+        # }
         # All values not in this are assumed to be self.nick, etc
         self.serv_to_data = {}
         
@@ -73,9 +81,9 @@ class IRC_member(object):
         """Sends a message to a server"""
         if hostname not in self.servers:
             print "No such server {}".format(hostname)
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 1
         
         sock = self.servers[hostname]
@@ -83,9 +91,9 @@ class IRC_member(object):
             sock.send("{} \r\n".format(message.rstrip()))
         except socket.error as (errnum, strerr):
             print errnum, strerr
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 2
         else:
             return 0
@@ -94,16 +102,16 @@ class IRC_member(object):
         """Sends a message to a channel"""
         if hostname not in self.servers:
             print "Not connected to server {}".format(hostname)
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 1
 
         elif chan_name not in self.serv_to_chan[hostname]:
             print "Not in channel {}".format(chan_name)
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 2
 
         else:
@@ -113,9 +121,9 @@ class IRC_member(object):
                                                        message.rstrip()))
             except socket.error as (errnum, strerr):
                 print errnum, strerr
-                print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+                print "Failed to send message {}".format(message[:10] 
+                                                          if len(message) > 10
+                                                          else message)
                 return 3
             else:
                 return 0
@@ -124,9 +132,9 @@ class IRC_member(object):
         """Sends a private message to a user"""
         if hostname not in self.servers:
             print "No such server {}".format(hostname)
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 1
             
         ## TODO: Have a test to check for valid users
@@ -138,9 +146,9 @@ class IRC_member(object):
             sock.send("PRIVMSG {} :{}\r\n".format(username, message.rstrip()))
         except socket.error as (errnum, strerr):
             print errnum, strerr
-            print "Failed to send message {}".format(
-                        message[:10] if len(message) > 10
-                                     else message)
+            print "Failed to send message {}".format(message[:10] 
+                                                      if len(message) > 10
+                                                      else message)
             return 3
         else:
             return 0
@@ -154,8 +162,7 @@ class IRC_member(object):
             print "Couldn't pong the server"
             return 1
         else:
-            return 0
-            
+            return 0        
         
     def join_server(self, hostname, port=6667, **kwargs):
         """Joins a server"""
@@ -185,8 +192,8 @@ class IRC_member(object):
             sock.connect((ip, port))
             self.servers[hostname] = sock
             self.serv_to_chan[hostname] = []
-            #sock.settimeout(2)
-            sock.setblocking(0)
+            sock.settimeout(2)
+            #sock.setblocking(0)
             self.send_server_message(hostname, "NICK {}\r\n".format(nick))
             self.send_server_message(hostname, 
                               "USER {} {} bla: {}\r\n".format(nick, 
@@ -280,15 +287,23 @@ class IRC_member(object):
         ready, _, _ = select.select(self.servers.values(), [], [], 5)
         
         if ready:
+            print "ready"
+            for i in range(len(ready)):
+                for host, sock in self.servers.iteritems():
+                    if sock == ready[i]:
+                        ready[i] = host
             try:
                 pool = dummy.Pool()
                 pool.map(partial(self.receive_message,
                                  bsize=buff_size),
-                         ready)
+                         (tuple(ready),))
+                #pool.map(self.receive_message, (tuple(ready),))
                 with self.lock:
                     replies, self.replies = self.replies, {}
-                for server, reply in replies:
-                    print server, ":\n\n", reply, "\n\n"
+                for server, reply in replies.iteritems():
+                    print "{} :\n\n".format(server)
+                    for message in reply:
+                        print " {}".format(message)
             except socket.error as (errnum, strerr):
                 print errnum, strerr
                 print "Failed to get messages"
@@ -301,7 +316,9 @@ class IRC_member(object):
         """Recieves messages from a single server.  Has already checked that 
         there is a message waiting
         """
-        reply = ""
+        hostname = hostname[0]
+        print "Receiving from {}".format(hostname)
+        reply = []
         sock = self.servers[hostname]
         
         while True:
@@ -317,46 +334,38 @@ class IRC_member(object):
                         self.ping_pong(sock, line[1])
                     else:
                         line = " ".join(line)
-                        reply += line
-            except socket.error as (errnum, strerr):
-                ### Err numbers:
-                ###  10035: A non-blocking socket operation couldn't be completed immediately
-                print errnum, strerr
-                print "Failed to get message"
-                with self.lock:
-                    try:
-                        self.replies[hostname] += (reply,)
-                    except KeyError:
-                        self.replies[hostname] = (reply,)
-        
+                        reply.append(line)
+            except socket.error: break
         with self.lock:
             try:
-                self.replies[hostname] += (reply,)
+                if reply not in self.replies[hostname]: 
+                    self.replies[hostname] += reply
             except KeyError:
-                self.replies[hostname] = (reply,)
-
-        
-        
+                self.replies[hostname] = reply
         
     def __del__(self):
         for sock in self.servers.values():
             sock.close()
         
 if __name__ == "__main__":
-    NICK = "nick" # raw_input("Please enter your nickname ")
+    NICK = "Dannnno" # raw_input("Please enter your nickname ")
     #USER = raw_input("Please enter your user name ")
     #REAL = raw_input("Please enter your 'real' name ")
     HOST = "irc.foonetic.net" # raw_input("Please enter your desired server ")
-    CHAN = "#temp-channel" # raw_input("Please enter your desired channel ")
+    CHAN = "#pokemon-eternal" # raw_input("Please enter your desired channel ")
     
     me = IRC_member(NICK)
     me.join_server(HOST)
-    time.sleep(3)
+    time.sleep(1)
+    me.receive_all_messages()
     me.join_channel(HOST, CHAN)
+    time.sleep(1)
+    me.receive_all_messages()
     i = 0
-    while i < 2:
+    while i < 100:
         start = time.time()
         msg = raw_input("Would you like to say something? ")
+        if msg == 'n': break
         if msg.rstrip():
             me.send_channel_message(HOST, CHAN, msg)
         me.receive_all_messages()
