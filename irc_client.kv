@@ -38,25 +38,47 @@
 
 <Channel>:
     text: "Some_Channel"
+    width: len(self.text)*15
+    
+<File_but>:
+    Button:
+        text: "Connect to server"
+        
+    Button:
+        text: "Connect to channel"
+        
+    Button:
+        text: "Reconnect"
+        
+    Button:
+        text: "Exit"
+        
+<Set_but>:
+    id: "Settings_Dropdown"
+    text: "Settings"
+    
+    Button:
+        text: "User info"
+        
+<Help_but>:
+    id: "Help_Dropdown"
+    text: "Help"
+    
+    Button:
+        text: "Help"       
     
 <Menu_Bar>:
     StackLayout:
         orientation: "lr-tb"
         
-        Button:
+        File_but:
             size_hint: .1, 1
-            id: "File_button"
-            text: "File"
             
-        Button:
+        Set_but:
             size_hint: .1, 1
-            id: "Set_button"
-            text: "Settings"
             
-        Button:
+        Help_but:
             size_hint: .1, 1
-            id: "Help_button"
-            text: "Help"
             
 <IRC_Widget>:
     BoxLayout:
@@ -65,7 +87,7 @@
         orientation: "vertical"
         
         Menu_Bar:
-            size_hint: (1, .05)
+            size_hint: 1, .1
         
         BoxLayout:
             orientation: "horizontal"
