@@ -25,10 +25,20 @@ If not, see <http://opensource.org/licenses/MIT>
 
 from functools import partial
 from multiprocessing import dummy
+import datetime
+import logging
 import select
 import socket
 import time
 import threading
+
+now = datetime.datetime.now()
+logging.basicConfig(filename=''.join(map(str,
+                                         [now.year,
+                                          now.month,
+                                          now.day,
+                                          ".log"])), 
+                    level=logging.INFO)
 
 
 class IRC_member(object):
@@ -80,20 +90,16 @@ class IRC_member(object):
     def send_server_message(self, hostname, message): 
         """Sends a message to a server"""
         if hostname not in self.servers:
-            print "No such server {}".format(hostname)
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+            logging.warning("No such server {}".format(hostname))
+            logging.warning("Failed to send message {}".format(message))
             return 1
         
         sock = self.servers[hostname]
         try:
             sock.send("{} \r\n".format(message.rstrip()))
-        except socket.error as (errnum, strerr):
-            print errnum, strerr
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+        except socket.error as e:
+            logging.exception(e)
+            logging.warning("Failed to send message {}".format(message))
             return 2
         else:
             return 0
@@ -101,17 +107,13 @@ class IRC_member(object):
     def send_channel_message(self, hostname, chan_name, message):
         """Sends a message to a channel"""
         if hostname not in self.servers:
-            print "Not connected to server {}".format(hostname)
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+            logging.warning("Not connected to server {}".format(hostname))
+            logging.warning("Failed to send message {}".format(message))
             return 1
 
         elif chan_name not in self.serv_to_chan[hostname]:
-            print "Not in channel {}".format(chan_name)
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+            logging.warning("Not in channel {}".format(chan_name))
+            logging.warning("Failed to send message {}".format(message))
             return 2
 
         else:
@@ -119,11 +121,9 @@ class IRC_member(object):
                 sock = self.servers[hostname]
                 sock.send("PRIVMSG {} :{}\r\n".format(chan_name,
                                                        message.rstrip()))
-            except socket.error as (errnum, strerr):
-                print errnum, strerr
-                print "Failed to send message {}".format(message[:10] 
-                                                          if len(message) > 10
-                                                          else message)
+            except socket.error as e:
+                logging.exception(e)
+                logging.warning("Failed to send message {}".format(message))
                 return 3
             else:
                 return 0
@@ -131,24 +131,21 @@ class IRC_member(object):
     def send_privmsg(self, hostname, username, message):
         """Sends a private message to a user"""
         if hostname not in self.servers:
-            print "No such server {}".format(hostname)
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+            logging.warning("No such server {}".format(hostname))
+            logging.warning("Failed to send message {}".format(message))
             return 1
             
         ## TODO: Have a test to check for valid users
         ## Should return 2
         ## if username not in ____: ...
+        logging.warn("Needs implementing to check for valid users")
         
         sock = self.servers[hostname]
         try:
             sock.send("PRIVMSG {} :{}\r\n".format(username, message.rstrip()))
-        except socket.error as (errnum, strerr):
-            print errnum, strerr
-            print "Failed to send message {}".format(message[:10] 
-                                                      if len(message) > 10
-                                                      else message)
+        except socket.error as e:
+            logging.exception(e)
+            logging.warning("Failed to send message {}".format(message))
             return 3
         else:
             return 0
@@ -157,9 +154,9 @@ class IRC_member(object):
         """Pongs the server"""
         try:
             sock.send("PONG {}\r\n".format(data))
-        except socket.error as (errnum, strerr):
-            print errnum, strerr
-            print "Couldn't pong the server"
+        except socket.error as e:
+            logging.exception(e)
+            logging.warn("Couldn't pong the server")
             return 1
         else:
             return 0        
@@ -167,7 +164,7 @@ class IRC_member(object):
     def join_server(self, hostname, port=6667, **kwargs):
         """Joins a server"""
         if hostname in self.servers:
-            print "Already connected to {}".format(hostname)
+            logging.warn("Already connected to {}".format(hostname))
             return 0
         
         nick = self.nick
@@ -193,91 +190,90 @@ class IRC_member(object):
             self.servers[hostname] = sock
             self.serv_to_chan[hostname] = []
             sock.settimeout(2)
-            #sock.setblocking(0)
             self.send_server_message(hostname, "NICK {}\r\n".format(nick))
             self.send_server_message(hostname, 
                               "USER {} {} bla: {}\r\n".format(nick, 
                                                               ident, 
                                                               realname))
             
-        except socket.gaierror as (errnum, strerr): ## couldn't resolve hostname
-            print errnum, strerr
+        except socket.gaierror as e: ## couldn't resolve hostname
+            logging.exception(e)
             return 1
             
-        except socket.error as (errnum, strerr):
-            print errnum, strerr
+        except socket.error as e:
+            logging.exception(e)
             if port != 6667:
-                print "Consider using port 6667 (the defacto IRC port)"
+                logging.warning("Consider using port 6667 (the defacto IRC port)")
             return 2
         
         else:
-            print "Connected to {} on {}".format(hostname, port)
+            logging.info("Connected to {} on {}".format(hostname, port))
             return 0
             
     def leave_server(self, hostname):
         """Leaves a server"""
         if hostname not in self.servers:
-            print "Not connected to {}".format(hostname)
+            logging.warning("Not connected to {}".format(hostname))
             return 0
             
         try:
             self.send_server_message(hostname, "QUIT\r\n")
         
-        except socket.error as (errnum, strerr):
-            print errnum, strerr
-            print "Failed to leave server {}".format(hostname)
+        except socket.error as e:
+            logging.exception(e)
+            logging.warning("Failed to leave server {}".format(hostname))
             return 1
             
         else:
             del self.servers[hostname]
             del self.serv_to_chan[hostname]
             if self.serv_to_data[hostname]: del self.serv_to_data[hostname]
-            print "Removed server {}".format(hostname)
+            logging.info("Left server {}".format(hostname))
             return 0
             
     def join_channel(self, hostname, chan_name):
         """Joins a channel"""
         if chan_name in self.serv_to_chan[hostname]:
-            print "Already connected to {} on {}".format(hostname, chan_name)
+            logging.warning("Already connected to {} on {}".format(hostname, chan_name))
             return 0
             
         if chan_name.startswith("#"):
             try:
                 self.send_server_message(hostname, 
                                          "JOIN {}\r\n".format(chan_name))
-            except socket.error as (errnum, strerr):
-                print errnum, strerr
-                print "Failed to connect to {}".format(chan_name)
+            except socket.error as e:
+                logging.exception(e)
+                logging.warning("Failed to connect to {}".format(chan_name))
                 return 1
             else:
                 self.serv_to_chan[hostname].append(chan_name)
-                print "Connected to {}".format(chan_name)
+                logging.info("Connected to {}".format(chan_name))
                 return 0
         else:
-            print "Channel names should look like #{}".format(chan_name)
+            logging.warning("Channel names should look like #{}".format(chan_name))
             return 2
                 
     def leave_channel(self, hostname, chan_name):
         """Leaves a channel"""
         if hostname not in self.servers:
-            print "No such server {}".format(hostname)
+            logging.warning("No such server {}".format(hostname))
             return 1
         
         elif chan_name not in self.serv_to_chan[hostname]:
-            print "No such channel {}".format(chan_name)
+            logging.warning("No such channel {}".format(chan_name))
             return 0
             
         else:
             try:
                 self.send_server_message(hostname, 
                                          "PART {}\r\n".format(chan_name))
-            except self.socket.error as (errnum, strerr):
-                print errnum, strerr
-                print "Failed to leave {}".format(chan_name)
+            except self.socket.error as e:
+                logging.exception(e)
+                logging.warning("Failed to leave {}".format(chan_name))
                 return 2
             else:
                 self.serv_to_chan[hostname].pop(chan_name)
-                print "Left channel {}".format(chan_name)
+                logging.info("Left channel {}".format(chan_name))
                 return 0
                 
     def receive_all_messages(self, buff_size=4096):
@@ -287,7 +283,6 @@ class IRC_member(object):
         ready, _, _ = select.select(self.servers.values(), [], [], 5)
         
         if ready:
-            print "ready"
             for i in range(len(ready)):
                 for host, sock in self.servers.iteritems():
                     if sock == ready[i]:
@@ -304,9 +299,9 @@ class IRC_member(object):
                     print "{} :\n\n".format(server)
                     for message in reply:
                         print " {}".format(message)
-            except socket.error as (errnum, strerr):
-                print errnum, strerr
-                print "Failed to get messages"
+            except socket.error as e:
+                logging.exception(e)
+                logging.warning("Failed to get messages")
                 return 1
                 
         else:
@@ -317,7 +312,6 @@ class IRC_member(object):
         there is a message waiting
         """
         hostname = hostname[0]
-        print "Receiving from {}".format(hostname)
         reply = []
         sock = self.servers[hostname]
         
@@ -352,7 +346,7 @@ if __name__ == "__main__":
     #USER = raw_input("Please enter your user name ")
     #REAL = raw_input("Please enter your 'real' name ")
     HOST = "irc.foonetic.net" # raw_input("Please enter your desired server ")
-    CHAN = "#pokemon-eternal" # raw_input("Please enter your desired channel ")
+    CHAN = "#tchannel" # raw_input("Please enter your desired channel ")
     
     me = IRC_member(NICK)
     me.join_server(HOST)
