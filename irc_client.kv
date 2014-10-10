@@ -1,0 +1,105 @@
+#:kivy 1.8.0
+
+<Text_Entry>:
+    StackLayout:
+        orientation: "lr-bt"
+        
+        Label:
+            size_hint: .8, 1
+            text: "This is where you'll enter text"
+        
+        Button:
+            size_hint: .2, 1
+            id: "Submit"
+            text: "Send"
+    
+<User_List>:
+    text: "This is where you'll see\n the list of users"
+    
+<Chat_Window>:
+    do_default_tab: False
+
+    Channel:
+        text: "Chan1"
+        
+        Label:
+            text: "I'm from some server!"
+        
+    Channel:
+        text: "Chan2"
+        
+        Label:
+            text: "I'm from a different one!"
+        
+    Channel:
+    
+        Label:
+            text: "No one cares about me"
+
+<Channel>:
+    text: "Some_Channel"
+    width: len(self.text)*15
+    
+<File_but>:
+    Button:
+        text: "Connect to server"
+        
+    Button:
+        text: "Connect to channel"
+        
+    Button:
+        text: "Reconnect"
+        
+    Button:
+        text: "Exit"
+        
+<Set_but>:
+    id: "Settings_Dropdown"
+    text: "Settings"
+    
+    Button:
+        text: "User info"
+        
+<Help_but>:
+    id: "Help_Dropdown"
+    text: "Help"
+    
+    Button:
+        text: "Help"       
+    
+<Menu_Bar>:
+    StackLayout:
+        orientation: "lr-tb"
+        
+        File_but:
+            size_hint: .1, 1
+            
+        Set_but:
+            size_hint: .1, 1
+            
+        Help_but:
+            size_hint: .1, 1
+            
+<IRC_Widget>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        
+        Menu_Bar:
+            size_hint: 1, .1
+        
+        BoxLayout:
+            orientation: "horizontal"
+            
+            BoxLayout:
+                orientation: "vertical"
+                
+                Chat_Window:
+                    size_hint: (1, .95)
+                    
+                Text_Entry:
+                    size_hint: (1, .05)
+                    
+            User_List:
+                size_hint: (.25, 1)

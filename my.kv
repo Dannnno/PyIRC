@@ -1,0 +1,20 @@
+<RootWidget>:
+    orientation: "lr-tb"
+    Label:
+        text: "Attribute a:"
+    Label:
+        text: root.data_model.a
+    Label:
+        text: "Attribute b:"
+    Label:
+        text: root.data_model.b
+    Label:
+        text: "Attribute c:"
+    Label:
+        text: root.data_model.c
+    Button:
+        text: "Make data_model.a longer"
+        on_press: root.button_press()
+    Button:
+        text: "Make data_model.b shorter"
+        on_press: root.button_press2()
