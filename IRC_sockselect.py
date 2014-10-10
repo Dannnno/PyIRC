@@ -292,7 +292,6 @@ class IRC_member(object):
                 pool.map(partial(self.receive_message,
                                  bsize=buff_size),
                          (tuple(ready),))
-                #pool.map(self.receive_message, (tuple(ready),))
                 with self.lock:
                     replies, self.replies = self.replies, {}
                 for server, reply in replies.iteritems():
