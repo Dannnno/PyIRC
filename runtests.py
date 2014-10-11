@@ -14,6 +14,12 @@ class server_socket(socket.socket):
         self.bind(('localhost', 80))
         self.listen(5)                                            
 
+def client_thread(client_socket): 
+    """"""
+    thread = threading.Thread(target=client_socket.send,
+                              args=("Hi my name is Dan"))
+    
+    return thread
 
 class test_sockselect(unittest.TestCase):
     
@@ -27,12 +33,14 @@ class test_sockselect(unittest.TestCase):
     
     def test_send_server_message(self): 
         try:
-            test_client = IRC_sockselect.IRC_member("Dan")                          
+            test_client = IRC_sockselect.IRC_member("Dan")   
+            test_client.join_server('localhost')                       
             
             with self.lock:
-                (client_socket, address) = self.serv_sock.accept()
-                ct = client_thread(clientsocket)
-                ct.run()
+                for i in range(5):
+                    (client_socket, address) = self.serv_sock.accept()
+                    ct = client_thread(client_socket)
+                    ct.run()
         finally:
             test_client.close()
     
