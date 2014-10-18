@@ -1,35 +1,39 @@
-import unittest
-import mock
+from contextlib import closing
+import logging
+import socket
 import sys
-import IRC_sockselect
+import threading
+import unittest
 
 
-class test_sockselect(unittest.TestCase):
-    
-    def setUp(self): pass
-    
-    def tearDown(self): pass
-    
-    
-    @mock.patch('IRC_sockselect.socket.send')
-    @mock.patch('IRC_sockselect.socket')
-    def test_send_server_message(self, 
-                                  mock_socket, 
-                                  mock_send): 
-                                  
-        my_irc = IRC_sockselect.IRC_member("Dan")
-        
-        my_socket = mock_socket.socket(mock_socket.AF_INET,
-                                       mock_socket.SOCK_STREAM)
+logging.basicConfig(filename='logger.log',
+                    level=logging.DEBUG)
 
-        my_irc.servers["irc.foonetic.net"] = my_socket.connect((
-                                        mock_socket.gethostbyname("irc.foonetic.net"),
-                                        6667))
 
-        sys.stdout.write(str( my_irc))
-        sys.stdout.write(str( my_socket))
-        my_socket.mock_send("Hello")
-        my_socket.recv()
-        
-suite = unittest.TestLoader().loadTestsFromTestCase(test_sockselect)
-unittest.TextTestRunner(sys.stdout, verbosity=2).run(suite)                                                                                
+class server_socket(threading.Thread): 
+    
+    def run(self):
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as self.server:
+            self.server.bind(('localhost', 10000))
+            self.server.listen(5)
+            while True:
+                (connection, address) = self.server.accept()
+                if connection:
+                    print connection, address
+                    break
+                else:
+                    continue
+        return
+
+class test_sockselect(unittest.TestCase): 
+
+    def setUp(self):
+        self.server = server_socket()
+        self.server.start()
+
+
+if __name__ == '__main__':
+    server = server_socket()
+    server.start()
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as my_sock:
+        my_sock.connect(('localhost', 10000))
