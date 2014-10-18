@@ -366,3 +366,5 @@ if __name__ == "__main__":
         if (end-start) < 5:
             time.sleep(int(5-(end-start)))
         i += 1
+    
+    del me
