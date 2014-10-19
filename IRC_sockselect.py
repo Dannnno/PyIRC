@@ -355,6 +355,7 @@ if __name__ == "__main__":
     time.sleep(1)
     me.receive_all_messages()
     i = 0
+    
     while i < 100:
         start = time.time()
         msg = raw_input("Would you like to say something? ")
