@@ -218,6 +218,7 @@ class IRC_member(object):
             
         try:
             self.send_server_message(hostname, "QUIT\r\n")
+            self.servers[hostname].close()
         
         except socket.error as e:
             logging.exception(e)
@@ -225,11 +226,18 @@ class IRC_member(object):
             return 1
             
         else:
-            del self.servers[hostname]
-            del self.serv_to_chan[hostname]
-            if self.serv_to_data[hostname]: del self.serv_to_data[hostname]
-            logging.info("Left server {}".format(hostname))
-            return 0
+            try:
+                del self.servers[hostname]
+            finally:
+                try:
+                    del self.serv_to_chan[hostname]
+                finally:
+                    try:
+                        if self.serv_to_data[hostname]: 
+                            del self.serv_to_data[hostname]
+                    finally:
+                        logging.info("Left server {}".format(hostname))
+                        return 0
             
     def join_channel(self, hostname, chan_name):
         """Joins a channel"""
@@ -337,8 +345,8 @@ class IRC_member(object):
                 self.replies[hostname] = reply
         
     def __del__(self):
-        for sock in self.servers.values():
-            sock.close()
+        for host, sock in self.servers.items():
+            self.leave_server(host)
         
 if __name__ == "__main__":
     NICK = "Dannnno" # raw_input("Please enter your nickname ")
