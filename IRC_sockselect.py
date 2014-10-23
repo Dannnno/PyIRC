@@ -173,16 +173,15 @@ class IRC_member(object):
         
         ## Checking if the data for this server is different from the defaults
         if kwargs:
-            for key, value in kwargs.iteritems():
-                self.serv_to_data[hostname] = {}
-                if key in ["nick", "ident", "realname"]:
+            self.serv_to_data[hostname] = {}
+            for key, value in kwargs.items():
+                if key in self.__dict__:
                     self.serv_to_data[hostname][key] = value
                     locals()[key] = value
                 else:
-                    print "key-value pair {}: {} unusued".format(key, value)
+                    logging.info("key-value pair {}: {} unusued".format(key, value))
             if not self.serv_to_data[hostname]:
                 del self.serv_to_data[hostname]
-        
         try:
             ip = socket.gethostbyname(hostname) ## throws gaierror 11004
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -356,7 +355,7 @@ if __name__ == "__main__":
     CHAN = "#tchannel" # raw_input("Please enter your desired channel ")
     
     me = IRC_member(NICK)
-    me.join_server(HOST)
+    me.join_server(HOST, nick='test', ident='test', realname='test')
     time.sleep(1)
     me.receive_all_messages()
     me.join_channel(HOST, CHAN)

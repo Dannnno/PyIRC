@@ -24,6 +24,7 @@ If not, see <http://opensource.org/licenses/MIT>
 """
 
 from contextlib import closing
+from testfixtures import LogCapture
 import IRC_sockselect
 import logging
 import select
@@ -88,6 +89,7 @@ class test_sockselect(unittest.TestCase):
         self.server = server_socket()
         self.server.start()
         self.IRC = IRC_sockselect.IRC_member("Nickname")
+        self.l = LogCapture()
         
     def test_join_server(self): 
         self.assertEqual(self.IRC.join_server('localhost', 
@@ -101,27 +103,25 @@ class test_sockselect(unittest.TestCase):
         
     def test_join_server2(self):
         self.assertEqual(self.IRC.join_server('localhost', 
-                                              10000,
+                                              port=10000,
                                               nick="Nick",
                                               ident="Ident",
-                                              real="Realname"),
+                                              realname="Realname"),
                          0)
         map(self.assertEqual,
             [self.IRC.serv_to_data['localhost']['nick'],
              self.IRC.serv_to_data['localhost']['ident'],
-             self.IRC.serv_to_data['localhost']['real'],
+             self.IRC.serv_to_data['localhost']['realname'],
             ],
             ['Nick', 'Ident', 'Realname']
            )
         self.IRC.send_server_message('localhost', 'Done')
-        
     
     def test_leave_server(self): 
         self.IRC.join_server('localhost', 10000)
         self.IRC.send_server_message('localhost', 'Done')
         self.assertEqual(self.IRC.leave_server('localhost'),
-                         0)
-        
+                         0)        
         
     def test_join_channel(self): 
         self.IRC.join_server('localhost', 10000)
@@ -130,23 +130,25 @@ class test_sockselect(unittest.TestCase):
                          0)
         self.IRC.send_server_message('localhost', 'Done')
     
+    @unittest.skip("Not yet implemented")
     def test_leave_channel(self): pass
-        
+    @unittest.skip("Not yet implemented")
     def test_ping(self): pass
-    
+    @unittest.skip("Not yet implemented")
     def test_send_server_message(self): pass
-    
+    @unittest.skip("Not yet implemented")
     def test_send_channel_message(self): pass
-    
+    @unittest.skip("Not yet implemented")
     def test_send_priv_message(self): pass
-    
+    @unittest.skip("Not yet implemented")
     def test_receive_all_messages(self): pass
-    	
+    @unittest.skip("Not yet implemented")
     def test_receive_message(self): pass
         
     def tearDown(self): 
         self.server.join()
         del self.IRC
+        del self.l
 
 
 if __name__ == '__main__':   
