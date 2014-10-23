@@ -47,25 +47,37 @@ def client_thread(asocket):
                                 [],
                                 [])
         if R:
-            message = client_sock.recv(1024)
-            if 'Done' in message:
+            try:
+                message = client_sock.recv(1024)
+            except socket.error: 
+                ## Takes care of race conditions in test_leave_server
                 client_sock.close()
                 break
-            elif 'pingpong' in message:
-                client_sock.send('PING 1234567890')
-            elif 'PONG 1234567890' in message:
-                client_sock.send('PINGPONG')
             else:
-                client_sock.send(message) 
+                if 'Done' in message:
+                    client_sock.close()
+                    break
+                elif 'pingpong' in message:
+                    client_sock.send('PING 1234567890')
+                elif 'PONG 1234567890' in message:
+                    client_sock.send('PINGPONG')
+                else:
+                    client_sock.send(message) 
     ready.release()
     return
             
 
 class server_socket(threading.Thread): 
     
+    #def __init__(self, server='localhost', port=10000):
+    #    super(server_socket, self).__init__()
+    #    self.server = server
+    #    self.port = port
+    
     def run(self):
         try:
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                 
+            ## self.server.bind((self.server, self.port))
             self.server.bind(('localhost', 10000))
             self.server.listen(5)
             while True:
@@ -130,16 +142,49 @@ class test_sockselect(unittest.TestCase):
                          0)
         self.IRC.send_server_message('localhost', 'Done')
     
-    @unittest.skip("Not yet implemented")
-    def test_leave_channel(self): pass
-    @unittest.skip("Not yet implemented")
-    def test_ping(self): pass
-    @unittest.skip("Not yet implemented")
-    def test_send_server_message(self): pass
-    @unittest.skip("Not yet implemented")
-    def test_send_channel_message(self): pass
-    @unittest.skip("Not yet implemented")
-    def test_send_priv_message(self): pass
+    @unittest.skip("Broken")
+    def test_leave_channel(self): ## Throws an error
+        try:
+            self.IRC.join_server('localhost', 10000)
+            self.IRC.join_channel('localhost', '#temp-channel')
+            self.assertEqual(self.IRC.leave_channel('localhost', 
+                                                    '#temp-channel'),
+                            0)
+            self.IRC.send_server_message('localhost', 'Done')
+        except Exception as e:
+            print e
+            
+    @unittest.skip("Broken")
+    def test_ping(self): 
+        self.IRC.join_server('localhost', 10000)
+        self.IRC.send_server_message('localhost', 'pingpong')
+        self.IRC.receive_message('localhost')
+        print self.IRC.replies
+        
+    def test_send_server_message(self): 
+        self.IRC.join_server('localhost', 10000)
+        self.assertEqual(self.IRC.send_server_message('localhost',
+                                                      'anything'),
+                         0)
+        self.IRC.send_server_message('localhost', 'Done')
+        
+    def test_send_channel_message(self): 
+        self.IRC.join_server('localhost', 10000)
+        self.IRC.join_channel('localhost', '#temp-channel')
+        self.assertEqual(self.IRC.send_channel_message('localhost',
+                                                       '#temp-channel',
+                                                       'anything'),
+                         0)
+        self.IRC.send_server_message('localhost', 'Done')
+        
+    def test_send_priv_message(self): 
+        self.IRC.join_server('localhost', 10000)
+        self.assertEqual(self.IRC.send_privmsg('localhost',
+                                               'some_user',
+                                               'anything'),
+                         0)
+        self.IRC.send_server_message('localhost', 'Done')
+        
     @unittest.skip("Not yet implemented")
     def test_receive_all_messages(self): pass
     @unittest.skip("Not yet implemented")
@@ -148,22 +193,10 @@ class test_sockselect(unittest.TestCase):
     def tearDown(self): 
         self.server.join()
         del self.IRC
-        del self.l
+        self.l.uninstall()
 
 
 if __name__ == '__main__':   
-    import sys               
+    import sys    
     suite = unittest.TestLoader().loadTestsFromTestCase(test_sockselect)
     unittest.TextTestRunner(sys.stdout, verbosity=2).run(suite)
-
-    #server = server_socket()
-    #server.start()
-    #try:
-    #    my_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #    my_sock.connect(('localhost', 10000))
-    #    print my_sock.recv(1024)
-    #    my_sock.send('Hello')
-    #    print my_sock.recv(1024)
-    #finally:
-    #    my_sock.close()
-    #server.join()
