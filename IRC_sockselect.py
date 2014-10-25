@@ -274,12 +274,12 @@ class IRC_member(object):
             try:
                 self.send_server_message(hostname, 
                                          "PART {}\r\n".format(chan_name))
-            except self.socket.error as e:
+            except socket.error as e:
                 logging.exception(e)
                 logging.warning("Failed to leave {}".format(chan_name))
                 return 2
             else:
-                self.serv_to_chan[hostname].pop(chan_name)
+                self.serv_to_chan[hostname].remove(chan_name)
                 logging.info("Left channel {}".format(chan_name))
                 return 0
                 
@@ -305,6 +305,7 @@ class IRC_member(object):
                     print "{} :\n\n".format(server)
                     for message in reply:
                         print " {}".format(message)
+                return 0
             except socket.error as e:
                 logging.exception(e)
                 logging.warning("Failed to get messages")

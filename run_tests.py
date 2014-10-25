@@ -23,25 +23,39 @@ You should have received a copy of the MIT License along with this program.
 If not, see <http://opensource.org/licenses/MIT>
 """
 
-from contextlib import closing
-from testfixtures import LogCapture
-import IRC_sockselect
-import logging
-import select
-import socket
-import threading
-import unittest
+try:
+    import cStringIO as IO
+except ImportError:
+    import StringIO as IO
+finally:
+    from contextlib import closing, contextmanager
+    from testfixtures import LogCapture
+    import IRC_sockselect
+    import select
+    import socket
+    import sys
+    import threading
+    import unittest
 
-
-logging.basicConfig(filename='C:/Users/Dan/Desktop/Programming/Github/PyIRC/logger.log',
-                    level=logging.DEBUG)
                     
 ready = threading.Semaphore(0)
 
+@contextmanager
+def capture():
+    oldout, olderr = sys.stdout, sys.stderr
+    
+    try:
+        out=[IO.StringIO(), IO.StringIO()]
+        sys.stdout, sys.stderr = out
+        yield out
+        
+    finally:
+        sys.stdout, sys.stderr = oldout, olderr
+        out[0] = out[0].getvalue()
+        out[1] = out[1].getvalue()
                     
 def client_thread(asocket): 
     client_sock = asocket
-    client_sock.send('New Thread')
     while True:
         R, _, _ = select.select([client_sock],
                                 [],
@@ -50,17 +64,13 @@ def client_thread(asocket):
             try:
                 message = client_sock.recv(1024)
             except socket.error: 
-                ## Takes care of race conditions in test_leave_server
+                ## Takes care of race conditions due to test_leave_server
                 client_sock.close()
                 break
             else:
                 if 'Done' in message:
                     client_sock.close()
                     break
-                elif 'pingpong' in message:
-                    client_sock.send('PING 1234567890')
-                elif 'PONG 1234567890' in message:
-                    client_sock.send('PINGPONG')
                 else:
                     client_sock.send(message) 
     ready.release()
@@ -69,16 +79,18 @@ def client_thread(asocket):
 
 class server_socket(threading.Thread): 
     
-    #def __init__(self, server='localhost', port=10000):
-    #    super(server_socket, self).__init__()
-    #    self.server = server
-    #    self.port = port
+    def __init__(self, server='localhost', port=10000):
+        super(server_socket, self).__init__()
+        self.hostname = server
+        self.port = port        
     
     def run(self):
-        try:
-            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                 
-            ## self.server.bind((self.server, self.port))
-            self.server.bind(('localhost', 10000))
+        with closing(socket.socket(
+                                    socket.AF_INET,
+                                    socket.SOCK_STREAM
+                                   )) as self.server:
+        
+            self.server.bind((self.hostname, self.port))
             self.server.listen(5)
             while True:
                 connection, _ = self.server.accept()
@@ -90,10 +102,9 @@ class server_socket(threading.Thread):
                 else:
                     continue
             ready.acquire()
-            client.join()
-        finally:
-            self.server.close()        
+            client.join()       
         return
+
 
 class test_sockselect(unittest.TestCase): 
 
@@ -111,7 +122,6 @@ class test_sockselect(unittest.TestCase):
             [self.IRC.nick, self.IRC.ident, self.IRC.realname],
             ['Nickname']*3
            )
-        self.IRC.send_server_message('localhost', 'Done')
         
     def test_join_server2(self):
         self.assertEqual(self.IRC.join_server('localhost', 
@@ -127,11 +137,9 @@ class test_sockselect(unittest.TestCase):
             ],
             ['Nick', 'Ident', 'Realname']
            )
-        self.IRC.send_server_message('localhost', 'Done')
     
     def test_leave_server(self): 
         self.IRC.join_server('localhost', 10000)
-        self.IRC.send_server_message('localhost', 'Done')
         self.assertEqual(self.IRC.leave_server('localhost'),
                          0)        
         
@@ -140,34 +148,24 @@ class test_sockselect(unittest.TestCase):
         self.assertEqual(self.IRC.join_channel('localhost', 
                                                '#temp-channel'),
                          0)
-        self.IRC.send_server_message('localhost', 'Done')
     
-    @unittest.skip("Broken")
-    def test_leave_channel(self): ## Throws an error
-        try:
-            self.IRC.join_server('localhost', 10000)
-            self.IRC.join_channel('localhost', '#temp-channel')
-            self.assertEqual(self.IRC.leave_channel('localhost', 
-                                                    '#temp-channel'),
-                            0)
-            self.IRC.send_server_message('localhost', 'Done')
-        except Exception as e:
-            print e
+    def test_leave_channel(self): 
+        self.IRC.join_server('localhost', 10000)
+        self.IRC.join_channel('localhost', '#tchannel')
+        self.assertEqual(self.IRC.leave_channel('localhost', '#tchannel'), 0)
             
-    @unittest.skip("Broken")
     def test_ping(self): 
         self.IRC.join_server('localhost', 10000)
-        self.IRC.send_server_message('localhost', 'pingpong')
-        self.IRC.receive_message('localhost')
-        print self.IRC.replies
+        self.assertEqual(self.IRC.ping_pong(self.IRC.servers['localhost'], 
+                                            "1234567890"),
+                         0)
         
     def test_send_server_message(self): 
         self.IRC.join_server('localhost', 10000)
         self.assertEqual(self.IRC.send_server_message('localhost',
                                                       'anything'),
                          0)
-        self.IRC.send_server_message('localhost', 'Done')
-        
+     
     def test_send_channel_message(self): 
         self.IRC.join_server('localhost', 10000)
         self.IRC.join_channel('localhost', '#temp-channel')
@@ -175,7 +173,6 @@ class test_sockselect(unittest.TestCase):
                                                        '#temp-channel',
                                                        'anything'),
                          0)
-        self.IRC.send_server_message('localhost', 'Done')
         
     def test_send_priv_message(self): 
         self.IRC.join_server('localhost', 10000)
@@ -183,20 +180,43 @@ class test_sockselect(unittest.TestCase):
                                                'some_user',
                                                'anything'),
                          0)
-        self.IRC.send_server_message('localhost', 'Done')
         
-    @unittest.skip("Not yet implemented")
-    def test_receive_all_messages(self): pass
-    @unittest.skip("Not yet implemented")
-    def test_receive_message(self): pass
+    def test_receive_all_messages(self): 
+        self.IRC.replies['localhost'] = []
+        self.IRC.join_server('localhost', 10000)
+        map(self.IRC.send_server_message,
+            ['localhost']*3,
+            ['whatever', 'something else', 'last thing'])
+        with capture():
+            self.assertEqual(self.IRC.receive_all_messages(), 0)
+        
+        
+    
+    def test_receive_message(self): 
+        self.IRC.replies['localhost'] = []
+        self.IRC.join_server('localhost', 10000)
+        map(self.IRC.send_server_message,
+            ['localhost']*3,
+            ['whatever', 'something else', 'last thing'])
+        self.IRC.receive_message(('localhost',))
+        self.assertEqual(self.IRC.replies['localhost'],
+                         [
+                          'NICK Nickname',
+                          'USER Nickname Nickname bla: Nickname',
+                          'whatever',
+                          'something else',
+                          'last thing'
+                         ]
+                        )
         
     def tearDown(self): 
+        for server in self.IRC.servers:
+            self.IRC.send_server_message(server, 'Done')
         self.server.join()
         del self.IRC
         self.l.uninstall()
 
 
-if __name__ == '__main__':   
-    import sys    
+if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(test_sockselect)
-    unittest.TextTestRunner(sys.stdout, verbosity=2).run(suite)
+    unittest.TextTestRunner(sys.stdout, verbosity=1).run(suite)
