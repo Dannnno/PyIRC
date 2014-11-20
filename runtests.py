@@ -28,10 +28,11 @@ import Testing
 import sys
 import unittest
 
+
 loader = unittest.TestLoader()
 suites_list = []
-for key, module in inspect.getmembers(Testing):
-    for sub_key, aclass in inspect.getmembers(module):
+for _, module in inspect.getmembers(Testing):
+    for _, aclass in inspect.getmembers(module):
         try:
             if issubclass(aclass, unittest.TestCase):
                 suites_list.append(loader.loadTestsFromTestCase(aclass))
@@ -39,5 +40,5 @@ for key, module in inspect.getmembers(Testing):
             
 big_suite = unittest.TestSuite(suites_list)
 
-runner = unittest.TextTestRunner(sys.stdout, verbosity=1)
+runner = unittest.TextTestRunner(sys.stdout, verbosity=2)
 runner.run(big_suite)
