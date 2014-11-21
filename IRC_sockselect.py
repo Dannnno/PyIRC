@@ -28,8 +28,7 @@ from multiprocessing import dummy
 import datetime
 import logging
 import select
-import socket
-import sys
+import socket 
 import time
 import threading
 
@@ -42,7 +41,6 @@ logging.basicConfig(filename=''.join(map(str,
                                           now.day,
                                           ".log"])), 
                     level=logging.INFO)
-#logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class IRC_member(object):
@@ -352,6 +350,7 @@ class IRC_member(object):
         for host, sock in self.servers.items():
             self.leave_server(host)
         
+
 if __name__ == "__main__":
     NICK = "Dannnno" # raw_input("Please enter your nickname ")
     #USER = raw_input("Please enter your user name ")

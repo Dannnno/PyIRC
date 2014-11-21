@@ -24,3 +24,4 @@ If not, see <http://opensource.org/licenses/MIT>
 """
 
 from . import test_sockselect
+from . import test_sockasyncore
