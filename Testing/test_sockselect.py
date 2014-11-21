@@ -1,3 +1,28 @@
+"""
+Copyright (c) 2014 Dan Obermiller
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+You should have received a copy of the MIT License along with this program.
+If not, see <http://opensource.org/licenses/MIT>
+"""
+
 try:
     import cStringIO as IO
 except ImportError:
@@ -72,7 +97,6 @@ class ServerSocket(threading.Thread):
             self.server.listen(5)
             while not self.event.isSet():
                 connection, _ = self.server.accept()
-                
                 if connection:
                     event = threading.Event()
                     client = threading.Thread(target=client_thread, 
@@ -81,13 +105,10 @@ class ServerSocket(threading.Thread):
                     client.start()
                     self.clients[client.ident] = connection, event, client
                     
-                if time.time()-self.now <= self.timeout:
-                    break
-                else:
-                    for id_, (socket_, event_, client_) in self.clients.items():
-                        if event_.isSet():
-                            client_.join()
-                            del self.clients[id_]
+                for id_, (socket_, event_, client_) in self.clients.items():
+                    if event_.isSet():
+                        client_.join()
+                        del self.clients[id_]
                 
 class test_sockselect(unittest.TestCase):
 
@@ -118,7 +139,7 @@ class test_sockselect(unittest.TestCase):
             [self.IRC_.nick, self.IRC_.ident, self.IRC_.realname],
             ['Nickname']*3
            )
-        
+    
     def test_join_server2(self):
         self.assertEqual(self.IRC_.join_server('localhost', 
                                               port=10000,
@@ -133,29 +154,29 @@ class test_sockselect(unittest.TestCase):
             ],
             ['Nick', 'Ident', 'Realname']
            )
-    
+
     def test_leave_server(self): 
         self.IRC_.join_server('localhost', 10000)
         self.assertEqual(self.IRC_.leave_server('localhost'),
                          0)        
-        
+   
     def test_join_channel(self): 
         self.IRC_.join_server('localhost', 10000)
         self.assertEqual(self.IRC_.join_channel('localhost', 
                                                '#temp-channel'),
                          0)
-    
+
     def test_leave_channel(self): 
         self.IRC_.join_server('localhost', 10000)
         self.IRC_.join_channel('localhost', '#tchannel')
         self.assertEqual(self.IRC_.leave_channel('localhost', '#tchannel'), 0)
-               
+           
     def test_send_server_message(self): 
         self.IRC_.join_server('localhost', 10000)
         self.assertEqual(self.IRC_.send_server_message('localhost',
                                                       'anything'),
                          0)
-     
+ 
     def test_send_channel_message(self): 
         self.IRC_.join_server('localhost', 10000)
         self.IRC_.join_channel('localhost', '#temp-channel')
@@ -163,14 +184,14 @@ class test_sockselect(unittest.TestCase):
                                                        '#temp-channel',
                                                        'anything'),
                          0)
-        
+    
     def test_send_priv_message(self): 
         self.IRC_.join_server('localhost', 10000)
         self.assertEqual(self.IRC_.send_privmsg('localhost',
                                                'some_user',
                                                'anything'),
                          0)
-        
+    
     def test_receive_all_messages(self): 
         self.IRC_.replies['localhost'] = []
         self.IRC_.join_server('localhost', 10000)
@@ -179,7 +200,7 @@ class test_sockselect(unittest.TestCase):
             ['whatever', 'something else', 'last thing'])
         with capture():
             self.assertEqual(self.IRC_.receive_all_messages(), 0)
-        
+    
     def test_receive_message(self): 
         self.IRC_.replies['localhost'] = []
         self.IRC_.join_server('localhost', 10000)

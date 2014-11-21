@@ -29,17 +29,20 @@ import datetime
 import logging
 import select
 import socket
+import sys
 import time
 import threading
 
 
 now = datetime.datetime.now()
 logging.basicConfig(filename=''.join(map(str,
-                                         [now.year,
+                                         ["Logs/",
+                                          now.year,
                                           now.month,
                                           now.day,
                                           ".log"])), 
                     level=logging.INFO)
+#logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class IRC_member(object):

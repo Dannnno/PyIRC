@@ -40,5 +40,5 @@ for _, module in inspect.getmembers(Testing):
             
 big_suite = unittest.TestSuite(suites_list)
 
-runner = unittest.TextTestRunner(sys.stdout, verbosity=2)
+runner = unittest.TextTestRunner(sys.stdout, verbosity=1)
 runner.run(big_suite)
