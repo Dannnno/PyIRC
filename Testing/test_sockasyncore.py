@@ -34,6 +34,8 @@ finally:
     import sys
     import unittest
     
+    from textfixtures import LogCapture
+    
     import IRC_sockasyncore as IRC
     
     

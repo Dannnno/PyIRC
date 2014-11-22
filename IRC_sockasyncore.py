@@ -33,6 +33,7 @@ finally:
     import logging
     import socket
     import threading
+    from multiprocessing import dummy
 
 
 now = datetime.datetime.now()
@@ -54,6 +55,7 @@ class ServerConnection(asyncore.dispatcher):
         self.buff_size = buff_size
         self.closed=False
         self.connect(self.address)
+        self.settimeout(2)
         self.write_buffer = ""
         self.read_buffer = IO.StringIO()
 
@@ -74,9 +76,20 @@ class ServerConnection(asyncore.dispatcher):
 
     def writable(self):
         return len(self.write_buffer) > 0
-
+        
+    def handle_accept(self):
+        raise AttributeError("Not a server, just a client")
+        
     
 class IRC_member(object):
+    MESSAGE = "{} \r\n"
+    PRIVMSG = "PRIVMSG {} :{}\r\n"
+    PONG = "PONG {}\r\n"
+    NICK = "NICK {}\r\n"
+    USER = "USER {} {} bla: {}\r\n"
+    QUIT = "QUIT\r\n"
+    JOIN = "JOIN {}\r\n"
+    PART = "PART {}\r\n"
     
     def __init__(self, nick, **kwargs):
         """Constructor for IRC_member.  Stores nickname, realname and ident
@@ -96,3 +109,76 @@ class IRC_member(object):
         
         self.lock = threading.Lock()
         self.replies = {}
+        
+    def join_server(self, hostname, port, **kwargs):
+        
+        if hostname in self.servers:
+            logging.warn("Already connected to {}".format(hostname))
+            return 0
+        
+        nick = self.nick
+        ident = self.ident
+        realname = self.realname
+        
+        address = (hostname, port)
+        socket_ = ServerConnection(hostname, port)
+        #self.servers[address] = socket_
+        self.servers[hostname] = socket_
+        self.serv_to_chan[hostname] = []
+        
+        ## Checking if the data for this server is different from the defaults
+        if kwargs:
+            self.serv_to_data[hostname] = {}
+            for key, value in kwargs.items():
+                if key in self.__dict__:
+                    self.serv_to_data[hostname][key] = value
+                    locals()[key] = value
+                else:
+                    logging.info("key-value pair {}: {} unusued".format(key, value))
+            if not self.serv_to_data[hostname]:
+                del self.serv_to_data[hostname]
+        
+        try:
+            self.send_server_message(hostname, self.NICK.format(nick))
+            self.send_server_message(hostname, 
+                                     self.USER.format(nick, ident, realname))
+                                     
+        except socket.gaierror as e:
+            logging.exception(e)
+            return 1
+            
+        except socket.error as e:
+            logging.exception(e)
+            return 2
+            
+        else:
+            logging.info("Connected to {} on {}".format(*address))
+            
+    def leave_server(self, hostname):
+        
+        if hostname not in self.servers:
+            logging.warning("Not connected to {}".format(hostname))
+            return 0
+            
+        try:
+            self.send_server_message(hostname, "QUIT\r\n")
+            self.servers[hostname].close()
+        
+        except socket.error as e:
+            logging.exception(e)
+            logging.warning("Failed to leave server {}".format(hostname))
+            return 1
+            
+        else:
+            try:
+                del self.servers[hostname]
+            finally:
+                try:
+                    del self.serv_to_chan[hostname]
+                finally:
+                    try:
+                        if self.serv_to_data[hostname]: 
+                            del self.serv_to_data[hostname]
+                    finally:
+                        logging.info("Left server {}".format(hostname))
+                        return 0
