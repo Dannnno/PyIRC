@@ -1,5 +1,5 @@
-[![Docs built](https://readthedocs.org/projects/pyirc/badge/?version=latest)](http://pyirc.readthedocs.org/en/latest/)
-[![Build passed](https://travis-ci.org/Dannnno/pyirc.svg?branch=master)](https://travis-ci.org/Dannnno/PyIRC)
+[![Docs built](https://readthedocs.org/projects/PyIRC/badge/?version=latest)](http://pyirc.readthedocs.org/en/latest/)
+[![Build passed](https://travis-ci.org/Dannnno/PyIRC.svg?branch=master)](https://travis-ci.org/Dannnno/PyIRC)
 ##PyIRC
 
 Implementation of an IRC client in python.  Will be implemented in various different ways (sockets w/ select, sockets w/ asyncore, Twisted, etc)

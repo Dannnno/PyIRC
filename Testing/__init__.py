@@ -22,6 +22,4 @@ THE SOFTWARE.
 You should have received a copy of the MIT License along with this program.
 If not, see <http://opensource.org/licenses/MIT>
 """
-
-from . import test_sockselect
-from . import test_sockasyncore
+__all__ = ['test_sockasyncore', 'test_sockselect']
