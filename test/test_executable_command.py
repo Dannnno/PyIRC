@@ -16,7 +16,7 @@ except ImportError:
 	import enum
 
 @enum.unique
-class TestEnum(ExecutableCommandMixin, enum.Enum):
+class FakeEnum(ExecutableCommandMixin, enum.Enum):
 	TEST = 1
 
 
