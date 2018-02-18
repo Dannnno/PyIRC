@@ -1,2 +1,3 @@
 python-coveralls
 testfixtures
+enum34
