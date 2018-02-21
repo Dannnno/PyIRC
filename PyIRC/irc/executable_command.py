@@ -17,9 +17,14 @@ except NameError:
 	pass
 
 from collections import defaultdict
+from itertools import izip_longest
+
+__all__ = [
+	"InvalidCommandParametersException", "CommandParameterSet",
+	"CommandParameter", "CountType", "ExecutableCommandMixin"]
 
 
-class InvalidCommandParameters(Exception):
+class InvalidCommandParametersException(Exception):
 	"""Raised when the parameters to a command are invalid."""
 
 	def __init__(self, command, param_problems):
@@ -33,8 +38,8 @@ class InvalidCommandParameters(Exception):
 			Collection of problems with the parameters
 		"""
 
-		message = '\n'.join(["Command: {}".format(command)] + param_problems)
-		super(InvalidCommandParameters, self).__init__(message)
+		message = '\n'.join(["Command: {}".format(command.name)] + param_problems)
+		super(InvalidCommandParametersException, self).__init__(message)
 
 
 class CommandParameterSet(object):
@@ -118,7 +123,7 @@ class CommandParameterSet(object):
 	def __str__(self):
 		"""Returns a string representation of the set."""
 
-		return "CommandParameter[{}]".format(len(self.parameters))
+		return "CommandParameterSet[{}]".format(len(self.parameters))
 
 	def __unicode__(self):
 		"""Returns the unicode string representation of the set."""
@@ -128,9 +133,32 @@ class CommandParameterSet(object):
 	def __repr__(self):
 		"""Returns a round-trippable representation of the set."""
 
-		return "CommandParameter({})".format(
-					", ".join(repr(param) for param in self.parameters)
-				)
+		return "CommandParameterSet({})".format(
+					", ".join(repr(param) for param in self.parameters))
+
+	def __eq__(self, other):
+		"""Check whether or not two CommandParameterSets are equal."""
+
+		if len(self) != len(other):
+			return False
+
+		return all(me == them for me, them in izip_longest(self, other, fillvalue=None))
+
+	def __ne__(self, other):
+		"""Check whether or not two CommandPArameterSets are not equal."""
+
+		return not (self == other)
+
+	def __len__(self):
+		"""Returns the number of parameters in the set."""
+
+		return len(self.parameters)
+
+	def __iter__(self):
+		"""Return an iterator for this command parameter set."""
+
+		for param in self.parameters:
+			yield param
 
 
 @enum.unique
@@ -190,6 +218,8 @@ class CommandParameter(object):
 		self.count = count
 		self.count_type = count_type
 
+		if not callable(validator):
+			raise TypeError("Validator must be callable")
 		if count < 0:
 			raise AttributeError("Count must be positive; was {}".format(count))
 		if int(count) != count:
@@ -232,6 +262,44 @@ class CommandParameter(object):
 			
 		return None
 
+	def __str__(self):
+		"""Returns a string representation of the parameter."""
+
+		return "CommandParameter"
+
+	def __unicode__(self):
+		"""Returns the unicode string representation of the set."""
+
+		return unicode(str(self))
+
+	def __repr__(self):
+		"""Returns a round-trippable representation of the set."""
+
+		return \
+			"CommandParameter('{}', {}, optional={}, count_type={}, count={})"\
+			.format(
+				self.name, self.validator.__name__, self.optional, 
+				self.count_type, self.count)
+
+	def __eq__(self, other):
+		"""Check whether or not two CommandParameters are equal."""
+
+		try:
+			return (self.name == other.name 
+				and self.validator is other.validator
+				and self.optional is other.optional
+				and self.count_type is other.count_type
+				and self.count == other.count)
+		except AttributeError:
+			raise TypeError(
+				"CommandParameter and type <{}> can't be compared.".format(
+					type(other)))
+
+	def __ne__(self, other):
+		"""Check whether or not two CommandParameters are not equal."""
+
+		return not (self == other)
+
 
 class ExecutableCommandMixin(object):
 	"""Mixin to make an enum of commands executable.
@@ -254,12 +322,9 @@ class ExecutableCommandMixin(object):
 		Function that takes in the parameters and returns something.
 	"""
 
-	_parameters = None
 	@property
 	def parameters(self):
-		if self._parameters is None:
-			self._parameters = CommandParameterSet()
-		return self._parameters
+		return self.__class__._parameters[self]
 
 	_executions = {}
 	@property
@@ -267,9 +332,9 @@ class ExecutableCommandMixin(object):
 		return self.__class__._executions[self]
 
 	def execute_command(self, *values):
-		problems = self._validate_parameters(values)
+		problems = self._validate_arguments(values)
 		if problems:
-			raise InvalidCommandParameters(self, problems)
+			raise InvalidCommandParametersException(self, problems)
 
 		return self.execution(*values)
 
@@ -346,14 +411,22 @@ class ExecutableCommandMixin(object):
 
 		return decorator
 
-	def _validate_parameters(self, parameters):
-		if self not in self.__class__:
-			return ["Undefined command"]
+	def _validate_arguments(self, arguments):
+		"""Validate the command's arguments.
 
-		if self not in self.__class__._parameters:
-			return ["Unimplemented command"]
+		Parameters
+		----------
+		arguments: collection[Object]
+			List of the arguments being passed.
 
-		errors = list(self.__class__._parameters[self].validate(parameters))
+		Returns
+		-------
+		list[string]
+			List of all of the problems with the arguments. Will be an
+			empty list if no problems are present.
+		"""
+
+		errors = list(self.__class__._parameters[self].validate(arguments))
 
 		if not errors or all(err is None for err in errors):
 			return []

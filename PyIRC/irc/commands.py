@@ -14,7 +14,7 @@ class IrcCommand(ExecutableCommandMixin, enum.Enum):
 
 
 @IrcCommand.LIST.register_parameter(
-	"channels", 1, optional=True, count=1, count_type=CountType.MIN)
+	"channels", 0, optional=True, count=1, count_type=CountType.MIN)
 def validate_channel_name(name):
 	"""Validate that a given name is a valid channel name.
 
@@ -35,7 +35,7 @@ def validate_channel_name(name):
 	## TODO: implement this
 	return None
 
-@IrcCommand.LIST.register_parameter("server", 2, optional=True)
+@IrcCommand.LIST.register_parameter("server", 1, optional=True)
 def validate_server_name(hostname):
 	"""Validate that a given name is a valid server name.
 

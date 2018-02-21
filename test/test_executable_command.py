@@ -1,5 +1,5 @@
 from PyIRC.irc.executable_command import (
-	ExecutableCommandMixin, InvalidCommandParameters, CommandParameter,
+	ExecutableCommandMixin, InvalidCommandParametersException, CommandParameter,
 	CommandParameterSet, CountType)
 from PyIRC.irc import IrcCommand
 
@@ -15,9 +15,12 @@ try:
 except ImportError:
 	import enum
 
-@enum.unique
-class FakeEnum(ExecutableCommandMixin, enum.Enum):
-	TEST = 1
+
+def something_bad(x):
+	return "Something Bad"
+
+def something_good(x):
+	return None
 
 
 class TestCommandParameterSet(unittest.TestCase):
@@ -112,5 +115,364 @@ class TestCommandParameterSet(unittest.TestCase):
 		self.assertEquals(len(errors), 1)
 		self.assertNotEquals(errors[0], "")
 
-def test_something():
-	assert True
+	def test_validate_values_good(self):
+		"""Test that all parameters validate correctly."""
+
+		cps = CommandParameterSet()
+		cps.insert_parameter(CommandParameter("test", something_good))
+		errors = list(cps.validate([1]))
+
+		self.assertEquals(len(errors), 0)
+
+	def test_validate_values_bad(self):
+		"""Test that all parameters validate correctly."""
+
+		cps = CommandParameterSet()
+		cps.insert_parameter(CommandParameter("test", something_bad))
+		errors = list(cps.validate([1]))
+
+		self.assertEquals(len(errors), 1)
+		self.assertNotEquals(errors[0], "")
+
+	def test_validate_values_some_bad(self):
+		"""Test that all parameters validate correctly."""
+
+		cps = CommandParameterSet()
+		cps.insert_parameter(CommandParameter("test", something_bad))
+		cps.insert_parameter(CommandParameter("test2", something_good))
+		errors = list(cps.validate([1, 2]))
+
+		self.assertEquals(len(errors), 1)
+		self.assertNotEquals(errors[0], "")
+
+	def test___repr___empty_round_trippable(self):
+		"""Test that __repr__ can be round-tripped for empty parameters."""
+
+		cps = CommandParameterSet()
+		cps2 = eval(repr(cps))
+
+		self.assertEquals(cps, cps2)
+
+	def test___repr___nonempty_round_trippable(self):
+		"""Test that __repr__ can be round-tripped non-empty params."""
+
+		cps = CommandParameterSet(CommandParameter("test", something_bad))
+		cps2 = eval(repr(cps))
+
+		self.assertTrue(cps == cps2)
+
+	def test___eq___empty(self):
+		"""Test that two empty CommandParameterSets are equal."""
+
+		cps = CommandParameterSet()
+		cps2 = CommandParameterSet()
+
+		self.assertEquals(cps, cps2)
+
+	def test___eq___same_length(self):
+		"""Test that two non-empty CommandParameterSets are equal."""
+
+		cps = CommandParameterSet(CommandParameter("test", something_bad))
+		cps2 = CommandParameterSet(CommandParameter("test", something_bad))
+
+		self.assertTrue(cps, cps2)
+
+	def test___eq___diff_length(self):
+		"""Test that two non-empty CommandParameterSets are not equal."""
+
+		cps = CommandParameterSet(CommandParameter("test", something_bad))
+		cps2 = CommandParameterSet(
+			CommandParameter("test", something_bad),
+			CommandParameter("test", something_bad))
+
+		self.assertFalse(cps == cps2)
+
+	def test___ne___empty(self):
+		"""Test that two empty CommandParameterSets are equal."""
+
+		cps = CommandParameterSet()
+		cps2 = CommandParameterSet()
+
+		self.assertFalse(cps != cps2)
+
+	def test___ne___same_length(self):
+		"""Test that two non-empty CommandParameterSets are equal."""
+
+		cps = CommandParameterSet(CommandParameter("test", something_bad))
+		cps2 = CommandParameterSet(CommandParameter("test", something_bad))
+
+		self.assertFalse(cps != cps2)
+
+	def test___ne___diff_length(self):
+		"""Test that two non-empty CommandParameterSets are not equal."""
+
+		cps = CommandParameterSet(CommandParameter("test", something_bad))
+		cps2 = CommandParameterSet(
+			CommandParameter("test", something_bad),
+			CommandParameter("test", something_bad))
+
+		self.assertTrue(cps != cps2)
+
+	def test___len__(self):
+		"""
+		Test that the length of a CommandParameterSet is the length of 
+		its parameters.
+		"""
+
+		cps = CommandParameterSet(
+			CommandParameter("test", something_bad),
+			CommandParameter("test", something_bad))
+
+		self.assertEquals(len(cps), len(cps.parameters))
+
+
+class TestCommandParameter(unittest.TestCase):
+
+	def test___init___no_error(self):
+		"""Test that constructing a normal CommandParameter works."""
+
+		cp = CommandParameter("test", something_bad)
+
+		self.assertEquals(cp.name, "test")
+		self.assertEquals(cp.count, 1)
+		self.assertIs(cp.validator, something_bad)
+		self.assertIs(cp.optional, False)
+		self.assertIs(cp.count_type, None)
+
+	def test___init___not_callable(self):
+		"""Test that a non-callable validator is an error."""
+
+		args = ["test", None]
+
+		self.assertRaises(TypeError, CommandParameter, *args)
+
+	def test___init___neg_count(self):
+		"""Test that a negative count is an error."""
+
+		args = ["test", something_bad]
+		kwargs = {"count": -1}
+
+		self.assertRaises(AttributeError, CommandParameter, *args, **kwargs)
+
+	def test___init___non_int_count(self):
+		"""Test that a non-integer count is an error."""
+
+		args = ["test", something_bad]
+		kwargs = {"count": 3.14159}
+
+		self.assertRaises(TypeError, CommandParameter, *args, **kwargs)
+
+	def test___init___missing_count_type(self):
+		"""Test that for count > 1, the count type is required."""
+
+		args = ["test", something_bad]
+		kwargs = {"count": 3}
+
+		self.assertRaises(AttributeError, CommandParameter, *args, **kwargs)
+
+	def test___init___nonsense_count_type(self):
+		"""Test that for count == 0, the count type must be min."""
+
+		args = ["test", something_bad]
+		kwargs = {"count": 0}
+
+		self.assertRaises(AttributeError, CommandParameter, *args, **kwargs)
+
+	def test_validate_optional(self):
+		"""Test that an optional parameter can be missing."""
+
+		cp = CommandParameter("test", something_bad, optional=True)
+
+		self.assertIs(cp.validate(None), None)
+
+	def test_validate_no_count_type(self):
+		"""Test that we can validate a single value when no count type."""
+
+		cp = CommandParameter("test", something_good)
+
+		self.assertIs(cp.validate("anything"), None)
+
+	def test_validate_count_exceeded(self):
+		"""Test that we don't exceed the count on CountType.MAX."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.MAX)
+
+		error = cp.validate([1, 2, 3])
+
+		self.assertIsNot(error, None)
+
+	def test_validate_count_below(self):
+		"""Test that we don't come below the count on CountType.MIN."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.MIN)
+
+		error = cp.validate([1])
+
+		self.assertIsNot(error, None)
+
+	def test_validate_count_exact(self):
+		"""Test that we get the exact count on CountType.EXACT."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+
+		error = cp.validate([1])
+
+		self.assertIsNot(error, None)
+
+	def test___repr___round_trippable(self):
+		"""Test that __repr__ can be round-tripped."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+		cp2 = eval(repr(cp))
+
+		self.assertEquals(cp, cp2)
+
+	def test___eq___equal(self):
+		"""Test that two equal CommandParameters can test for equality."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+		cp2 = eval(repr(cp))
+
+		self.assertTrue(cp == cp2)
+
+	def test___eq___inequal(self):
+		"""Test that two inequal CommandParameters can test for equality."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+		cp2 = eval(repr(cp))
+		cp2.name = "not test"
+
+		self.assertFalse(cp == cp2)
+
+	def test___ne___equal(self):
+		"""Test that two equal CommandParameters can test for inequality."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+		cp2 = eval(repr(cp))
+
+		self.assertFalse(cp != cp2)
+
+	def test___ne___inequal(self):
+		"""Test that two inequal CommandParameters can test for inequality."""
+
+		cp = CommandParameter(
+			"test", something_good, count=2, count_type=CountType.EXACT)
+		cp2 = eval(repr(cp))
+		cp2.name = "not test"
+
+		self.assertTrue(cp != cp2)
+
+class TestExecutableCommandMixin(unittest.TestCase):
+
+	def test_register_execution(self):
+		"""Test that an execution can be registered."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def test_func():
+			return None
+
+		self.assertIs(ExecutableCommandMixinTester.TESTPROPERTY.execution, test_func)
+
+	def test_register_execution_overwrite(self):
+		"""Test that an execution can be overwritten."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def test_func():
+			return None
+
+		self.assertIs(ExecutableCommandMixinTester.TESTPROPERTY.execution, test_func)
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def test_func_2():
+			return "something bad"
+
+		self.assertIs(ExecutableCommandMixinTester.TESTPROPERTY.execution, test_func_2)
+
+	def test_register_parameter(self):
+		"""Test that a parameter can be registered."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, optional=True)
+		def validate_func(param):
+			return None
+
+		cps = CommandParameterSet(
+			CommandParameter("test", validate_func, optional=True))
+
+		self.assertEquals(
+			ExecutableCommandMixinTester.TESTPROPERTY.parameters, cps)
+
+	def test_register_parameter_overwrite(self):
+		"""Test that a parameter can be overwritten."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, optional=True)
+		def validate_func(param):
+			return None
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, count=4, count_type=CountType.MAX)
+		def validate_func_2(param):
+			return "something good"
+
+		cps = CommandParameterSet(
+			CommandParameter(
+				"test", validate_func_2, count=4, count_type=CountType.MAX))
+
+		self.assertEquals(
+			ExecutableCommandMixinTester.TESTPROPERTY.parameters, cps)
+
+	def test_execute_command_invalid_args(self):
+		"""Test that there is an error if the parameters are invalid."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter("test", 0)
+		def validate_func(param):
+			return "something bad"
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def execute_func(value):
+			return "something good"
+
+		self.assertRaises(
+			InvalidCommandParametersException, 
+			ExecutableCommandMixinTester.TESTPROPERTY.execute_command)
+
+	def test_execute_command_valid_args(self):
+		"""Test that there is an error if the parameters are invalid."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, optional=True)
+		def validate_func(param):
+			return None
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def execute_func(value):
+			return "something good"
+
+		self.assertEquals(
+			ExecutableCommandMixinTester.TESTPROPERTY.execute_command(None), 
+			"something good")
+			
+
