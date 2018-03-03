@@ -209,8 +209,8 @@ class IrcErrors(enum.Enum):
     _ERR_NOTREGISTERED = ":You have not registered"
     ERR_NEEDMOREPARAMS = 461
     _ERR_NEEDMOREPARAMS = "<command> :Not enough parameters"
-    ERR_ALREADYREGISTRED = 462
-    _ERR_ALREADYREGISTRED = ":You may not reregister"
+    ERR_ALREADYREGISTERED = 462
+    _ERR_ALREADYREGISTERED = ":You may not reregister"
     ERR_NOPERMFORHOST = 463
     _ERR_NOPERMFORHOST = ":Your host isn't among the privileged"
     ERR_PASSWDMISMATCH = 464

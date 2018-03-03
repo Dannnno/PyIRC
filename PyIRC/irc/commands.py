@@ -19,33 +19,28 @@ class IrcCommand(ExecutableCommandMixin, enum.Enum):
     PASS
         Used to set a connection password. Can and must be sent
         before any attempt to register the connection.
+
         Parameters
         ----------
         password: string
             The actual password to use.
+    NICK
+    	Used to give a user a nickname, or change the previous one.
+    	Parameters
+    	----------
+    	nickname: string
+    		The nickname to use
+    	hopcount: int, optional
+    		How far away a nick is from its home server. Only used by
+    		servers
+
     .. _RFC1459: https://tools.ietf.org/html/rfc1459
     """
 
-    # Channel commands
-    LIST = 1
-    MODE = 2
-    JOIN = 3
-    NAMES = 4
-    WHO = 5
-    WHOIS = 6
+    PASS = 1
+    NICK = 2
 
-    # Operator commands
-    SQUIT = 7
-    CONNECT = 8
-    KILL = 9
-    KICK = 10
-    MODE = 11
-    INVITE = 12
-    TOPIC = 13
-
-    PASS = 14
-    USER = 15
-    NICK = 16
+    LIST = -1
 
 @IrcCommand.PASS.register_parameter("password", 0)
 def validate_password(password):
@@ -65,6 +60,75 @@ def validate_password(password):
 
     return None
 
+@IrcCommand.PASS.register_error_handler(IrcErrors.ERR_NEEDMOREPARAMS)
+def handle_missing_password(command, error):
+	"""Handle a missing password from a PASS command.
+
+	Raises
+	------
+	ValueError
+	"""
+
+	raise ValueError("Didn't send a password with a PASS command.")
+
+@IrcCommand.PASS.register_error_handler(IrcErrors.ERR_ALREADYREGISTERED)
+def handle_already_registered(command, error):
+	"""Handle sending a password when already registered."""
+
+	return None
+
+@IrcCommand.PASS.register_execution
+def build_password_message(password):
+	"""Build the PASS message to send."""
+
+	return "PASS {password}".format(**locals())
+
+@IrcCommand.NICK.register_parameter("nickname", 0)
+def validate_nickname(nickname):
+
+	return None
+
+@IrcCommand.NICK.register_parameter("hopcount", 1, optional=True)
+def validate_hopcount(hopcount):
+	"""Validate that the hopcount is an integer."""
+
+	try:
+		count = int(hopcount)
+	except TypeError:
+		return "Hopcount can't be converted to an integer"
+
+	# Anything convertable to int should convert to float
+	floating_count = float(hopcount)
+
+	if count != floating_count:
+		return "Hopcount must be an integer, not floating point"
+
+	return None
+
+@IrcCommand.NICK.register_error_handler(IrcErrors.ERR_NONICKNAMEGIVEN)
+def handle_missing_nickname(command, error):
+
+	raise ValueError("NICK command missing a nickname")
+
+@IrcCommand.NICK.register_error_handler(IrcErrors.ERR_NICKNAMEINUSE)
+def handle_duplicate_nickname(command, error):
+
+	raise ValueError("Nickname given is a duplicate; current and previous nickname dropped.")
+
+@IrcCommand.NICK.register_error_handler(IrcErrors.ERR_NICKCOLLISION)
+def handle_local_duplicate_nickname(command, error):
+
+	raise ValueError("Nickname given is a duplicate; no KILL generated")
+
+@IrcCommand.NICK.register_error_handler(IrcErrors.ERR_ERRONEUSNICKNAME)
+def handle_erroneous_nickname(command, error):
+
+	raise ValueError("Nickname is in an invalid format")
+
+@IrcCommand.NICK.register_execution
+def build_nick_command(nickname, hopcount=0):
+
+	return "NICK {nickname} {hopcount}".format(**locals())
 
 @IrcCommand.LIST.register_parameter(
     "channels", 0, optional=True, count=1, count_type=CountType.MIN)
