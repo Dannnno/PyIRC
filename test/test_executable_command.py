@@ -1,7 +1,6 @@
 from PyIRC.irc.executable_command import (
 	ExecutableCommandMixin, InvalidCommandParametersException, CommandParameter,
-	CommandParameterSet, CountType)
-from PyIRC.irc import IrcCommand
+	CommandParameterSet, CountType, NoHandlerExcepetion)
 
 import unittest
 
@@ -474,5 +473,82 @@ class TestExecutableCommandMixin(unittest.TestCase):
 		self.assertEquals(
 			ExecutableCommandMixinTester.TESTPROPERTY.execute_command(None), 
 			"something good")
-			
 
+	def test_register_error_handler_callable(self):
+		"""Test that the handler can be a function."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_error_handler(
+			"I AM A COOL ERROR CODE")
+		def handle_error(command, error):
+			return command, error
+
+		# No error, yay!
+
+	def test_register_error_handler_exception(self):
+		"""Test that the handler can be an exception."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_error_handler(
+			"I AM A COOL ERROR CODE")
+		class CustomException(Exception): pass
+
+		# No error, yay!
+
+	def test_register_error_handler_invalid(self):
+		"""Test that the handler can't be non-callable."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		dec = ExecutableCommandMixinTester.TESTPROPERTY.register_error_handler(
+			"I AM A COOL ERROR CODE")
+
+		self.assertRaises(TypeError, dec, "I AM NOT CALLABLE")
+
+	def test_handle_error_function(self):
+		"""Test that an error handler function is called."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_error_handler(
+			"I AM A COOL ERROR CODE")
+		def handle_error(command, error):
+			return command, error
+
+		self.assertEquals(
+			handle_error(ExecutableCommandMixinTester.TESTPROPERTY, 
+						 "I AM A COOL ERROR CODE"),
+			ExecutableCommandMixinTester.TESTPROPERTY.handle_error(
+				"I AM A COOL ERROR CODE"))
+
+	def test_handle_error_exception(self):
+		"""Test that an error handler exception is raised."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_error_handler(
+			"I AM A COOL ERROR CODE")
+		class CustomException(Exception): pass
+
+		self.assertRaises(
+			CustomException, 
+			ExecutableCommandMixinTester.TESTPROPERTY.handle_error,
+			"I AM A COOL ERROR CODE")
+
+	def test_handle_error_none(self):
+		"""Test that the handler must be present."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		self.assertRaises(
+			NoHandlerExcepetion,
+			ExecutableCommandMixinTester.TESTPROPERTY.handle_error,
+			"I AM ANY UNREGISTERED ERROR CODE")

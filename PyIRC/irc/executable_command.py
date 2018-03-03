@@ -301,6 +301,16 @@ class CommandParameter(object):
 		return not (self == other)
 
 
+class NoHandlerExcepetion(Exception):
+	"""
+	Exception to indicate that there is no handler for a given error.
+	"""
+
+	def __init__(self, command, error):
+		super(NoHandlerExcepetion, self).__init__(
+			"Command {} - Error {}".format(command, error))
+
+
 class ExecutableCommandMixin(object):
 	"""Mixin to make an enum of commands executable.
 
@@ -320,16 +330,12 @@ class ExecutableCommandMixin(object):
 		Set of parameters for this command.
 	execution: function(*values) -> Object
 		Function that takes in the parameters and returns something.
+	error_handlers: dict(error: function|exception)
+		Dictionary of error handlers for a given command. An exception
+		type may be passed, in which case the error code will raise the
+		given exception with the command, the error code, and any
+		other available values.
 	"""
-
-	@property
-	def parameters(self):
-		return self.__class__._parameters[self]
-
-	_executions = {}
-	@property
-	def execution(self):
-		return self.__class__._executions[self]
 
 	def execute_command(self, *values):
 		problems = self._validate_arguments(values)
@@ -337,6 +343,11 @@ class ExecutableCommandMixin(object):
 			raise InvalidCommandParametersException(self, problems)
 
 		return self.execution(*values)
+
+	_execution = None
+	@property
+	def execution(self):
+		return self._execution
 
 	def register_execution(self, func):
 		"""Register a function as this command's action.
@@ -352,12 +363,18 @@ class ExecutableCommandMixin(object):
 			The original function, unchanged.
 		"""
 
-		self.__class__._executions[self] = func
+		self._execution = func
 		return func
 
-	_parameters = defaultdict(CommandParameterSet)
+	_parameters = None
+	@property
+	def parameters(self):
+		if self._parameters is None:
+			self._parameters = CommandParameterSet()
+		return self._parameters
+
 	def register_parameter(self, name, n_th, optional=False, count=1, count_type=None):
-		"""Decorator to register a function to validate a given parameter.
+		"""Register a function to validate a given parameter.
 
 		Parameters
 		----------
@@ -402,7 +419,7 @@ class ExecutableCommandMixin(object):
 				The original function, unchanged.
 			"""
 
-			self.__class__._parameters[self].insert_parameter(
+			self.parameters.insert_parameter(
 				CommandParameter(name, validator, optional=optional, 
 					count=count, count_type=count_type),
 				n_th)
@@ -426,8 +443,62 @@ class ExecutableCommandMixin(object):
 			empty list if no problems are present.
 		"""
 
-		errors = list(self.__class__._parameters[self].validate(arguments))
+		errors = list(self.parameters.validate(arguments))
 
 		if not errors or all(err is None for err in errors):
 			return []
 		return errors
+
+	_error_handlers = None
+	@property
+	def error_handlers(self):
+		"""Error handler for this command."""
+
+		if self._error_handlers is None:
+			self._error_handlers = {}
+		return self._error_handlers
+
+	def handle_error(self, error):
+		"""Handle the error for this command.
+
+		Parameters
+		----------
+		error: hashable
+			The error to handle.
+		"""
+
+		handler = self.error_handlers.get(error, NoHandlerExcepetion)
+
+		result = handler(self, error)
+
+		try:
+			raise result
+		except TypeError:
+			return result
+
+	def register_error_handler(self, error):
+		"""Register an error handler for a given command/error pair.
+
+		Parameters
+		----------
+		error: hashable
+			The error to handle.
+
+		Returns
+		-------
+		decorator: function
+			Decorator function that registers error handlers for a 
+			command.
+		"""
+
+		def decorator(f):
+			"""Do the actual registration."""
+
+			if not callable(f):
+				raise TypeError(
+					"Error handler must be a function or Exception type")
+
+			self.error_handlers[error] = f
+			return f
+
+		return decorator
