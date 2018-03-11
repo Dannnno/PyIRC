@@ -214,7 +214,7 @@ class TestCommandParameterSet(unittest.TestCase):
 
 	def test___len__(self):
 		"""
-		Test that the length of a CommandParameterSet is the length of 
+		Test that the length of a CommandParameterSet is the length of
 		its parameters.
 		"""
 
@@ -439,6 +439,20 @@ class TestExecutableCommandMixin(unittest.TestCase):
 		self.assertEquals(
 			ExecutableCommandMixinTester.TESTPROPERTY.parameters, cps)
 
+	def test_register_validator(self):
+		"""Test that an overall validator can be registered."""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_validator
+		def validate_parameters(param):
+			return [None]
+
+		self.assertIs(
+			ExecutableCommandMixinTester.TESTPROPERTY.validator,
+			validate_parameters)
+
 	def test_execute_command_invalid_args(self):
 		"""Test that there is an error if the parameters are invalid."""
 
@@ -453,11 +467,11 @@ class TestExecutableCommandMixin(unittest.TestCase):
 			return "something good"
 
 		self.assertRaises(
-			InvalidCommandParametersException, 
+			InvalidCommandParametersException,
 			ExecutableCommandMixinTester.TESTPROPERTY.execute_command)
 
 	def test_execute_command_valid_args(self):
-		"""Test that there is an error if the parameters are invalid."""
+		"""Test that there is no error if the parameters are valid."""
 
 		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
 			TESTPROPERTY = 1
@@ -471,8 +485,57 @@ class TestExecutableCommandMixin(unittest.TestCase):
 			return "something good"
 
 		self.assertEquals(
-			ExecutableCommandMixinTester.TESTPROPERTY.execute_command(None), 
+			ExecutableCommandMixinTester.TESTPROPERTY.execute_command(None),
 			"something good")
+
+	def test_execute_command_valid_args_overall(self):
+		"""
+		Test that there is no error if the parameters are valid
+		overall.
+		"""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, optional=True)
+		def validate_func(param):
+			return None
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_validator
+		def validate_overall(param):
+			return []
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def execute_func(value):
+			return "something good"
+
+		self.assertEquals(
+			ExecutableCommandMixinTester.TESTPROPERTY.execute_command(None),
+			"something good")
+
+	def test_execute_command_invalid_args_overall(self):
+		"""
+		Test that there is an error if the parameters are not valid
+		overall.
+		"""
+
+		class ExecutableCommandMixinTester(ExecutableCommandMixin, enum.Enum):
+			TESTPROPERTY = 1
+
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_parameter(
+			"test", 0, optional=True)
+		def validate_func(param):
+			return None
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_validator
+		def validate_overall(param):
+			return ["Something bad"]
+		@ExecutableCommandMixinTester.TESTPROPERTY.register_execution
+		def execute_func(value):
+			return "something good"
+
+		self.assertRaises(
+			InvalidCommandParametersException,
+			ExecutableCommandMixinTester.TESTPROPERTY.execute_command,
+			"test_value")
 
 	def test_register_error_handler_callable(self):
 		"""Test that the handler can be a function."""
@@ -522,7 +585,7 @@ class TestExecutableCommandMixin(unittest.TestCase):
 			return command, error
 
 		self.assertEquals(
-			handle_error(ExecutableCommandMixinTester.TESTPROPERTY, 
+			handle_error(ExecutableCommandMixinTester.TESTPROPERTY,
 						 "I AM A COOL ERROR CODE"),
 			ExecutableCommandMixinTester.TESTPROPERTY.handle_error(
 				"I AM A COOL ERROR CODE"))
@@ -538,7 +601,7 @@ class TestExecutableCommandMixin(unittest.TestCase):
 		class CustomException(Exception): pass
 
 		self.assertRaises(
-			CustomException, 
+			CustomException,
 			ExecutableCommandMixinTester.TESTPROPERTY.handle_error,
 			"I AM A COOL ERROR CODE")
 

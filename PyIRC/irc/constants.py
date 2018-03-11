@@ -3,8 +3,10 @@ from __future__ import unicode_literals, absolute_import
 import enum
 
 
+MAX_NICKNAME_LENGTH = 9
+
 @enum.unique
-class IrcErrors(enum.Enum):
+class IrcError(enum.Enum):
     """Error codes that can be returned by an IRC server.
 
     Codes and documentation taken from RFC1459_.
@@ -14,8 +16,8 @@ class IrcErrors(enum.Enum):
     ERR_NOSUCHNICK: 401
         Used to indicate that the nickname parameter supplied to a
         command is unused
-     ERR_NOSUCHSERVER: 402
-         Used to indicate the server name given currently doesn't exist.
+    ERR_NOSUCHSERVER: 402
+        Used to indicate the server name given currently doesn't exist.
     ERR_NOSUCHCHANNEL: 403
         Used to indicate the given channel name is invalid.
     ERR_CANNOTSENDTOCHAN: 404
@@ -43,12 +45,12 @@ class IrcErrors(enum.Enum):
     ERR_NOTOPLEVEL: 413
         Returned by PRIVMSG to indicate that the message wasn't
         delivered because there was no top level domain specified.
-        Returned when an invalid use of "PRIVMSG $<server>" or
+        Returned when an invalid use of "PRIVMSG ${server_name}" or
         "PRIVMSG #<host>" is attempted.
     ERR_WILDTOPLEVEL: 414
         Returned by PRIVMSG to indicate that the message wasn't
         delivered because there was a wildcard in the top level domain.
-        Returned when an invalid use of "PRIVMSG $<server>" or
+        Returned when an invalid use of "PRIVMSG ${server_name}" or
         "PRIVMSG #<host>" is attempted.
     ERR_UNKNOWNCOMMAND: 421
         Returned to a registered client to indicate that the command
@@ -154,53 +156,53 @@ class IrcErrors(enum.Enum):
     """
 
     ERR_NOSUCHNICK = 401
-    _ERR_NOSUCHNICK = "<nickname> :No such nick/channel"
+    _ERR_NOSUCHNICK = "{nickname} :No such nick/channel"
     ERR_NOSUCHSERVER = 402
-    _ERR_NOSUCHSERVER = "<server name> :No such server"
+    _ERR_NOSUCHSERVER = "{server_name} :No such server"
     ERR_NOSUCHCHANNEL = 403
-    _ERR_NOSUCHCHANNEL ="<channel name> :No such channel"
+    _ERR_NOSUCHCHANNEL ="{channel_name} :No such channel"
     ERR_CANNOTSENDTOCHAN = 404
-    _ERR_CANNOTSENDTOCHAN = "<channel name> :Cannot send to channel"
+    _ERR_CANNOTSENDTOCHAN = "{channel_name} :Cannot send to channel"
     ERR_TOOMANYCHANNELS = 405
-    _ERR_TOOMANYCHANNELS = "<channel name> :You have joined too many channels"
+    _ERR_TOOMANYCHANNELS = "{channel_name} :You have joined too many channels"
     ERR_WASNOSUCHNICK = 406
-    _ERR_WASNOSUCHNICK = "<nickname> :There was no such nickname"
+    _ERR_WASNOSUCHNICK = "{nickname} :There was no such nickname"
     ERR_TOOMANYTARGETS = 407
-    _ERR_TOOMANYTARGETS = "<target> :Duplicate recipients. No message delivered"
+    _ERR_TOOMANYTARGETS = "{target} :Duplicate recipients. No message delivered"
     ERR_NOORIGIN = 409
     _ERR_NOORIGIN = ":No origin specified"
     ERR_NORECIPIENT = 411
-    _ERR_NORECIPIENT = ":No recipient given (<command>)"
+    _ERR_NORECIPIENT = ":No recipient given ({command})"
     ERR_NOTEXTTOSEND = 412
     _ERR_NOTEXTTOSEND = ":No text to send"
     ERR_NOTOPLEVEL = 413
-    _ERR_NOTOPLEVEL = "<mask> :No toplevel domain specified"
+    _ERR_NOTOPLEVEL = "{mask} :No toplevel domain specified"
     ERR_WILDTOPLEVEL = 414
-    _ERR_WILDTOPLEVEL = "<mask> :Wildcard in toplevel domain"
+    _ERR_WILDTOPLEVEL = "{mask} :Wildcard in toplevel domain"
     ERR_UNKNOWNCOMMAND = 421
-    _ERR_UNKNOWNCOMMAND = "<command> :Unknown command"
+    _ERR_UNKNOWNCOMMAND = "{command} :Unknown command"
     ERR_NOMOTD = 422
     _ERR_NOMOTD = ":MOTD File is missing"
     ERR_NOADMININFO = 423
-    _ERR_NOADMININFO = "<server> :No administrative info available"
+    _ERR_NOADMININFO = "{server_name} :No administrative info available"
     ERR_FILEERROR = 424
-    _ERR_FILEERROR = ":File error doing <file op> on <file>"
+    _ERR_FILEERROR = ":File error doing {file_operation} on {file}"
     ERR_NONICKNAMEGIVEN = 431
     _ERR_NONICKNAMEGIVEN = ":No nickname given"
     ERR_ERRONEUSNICKNAME = 432
-    _ERR_ERRONEUSNICKNAME = "<nick> :Erroneus nickname"
+    _ERR_ERRONEUSNICKNAME = "{nickname} :Erroneus nickname"
     ERR_NICKNAMEINUSE = 433
-    _ERR_NICKNAMEINUSE = "<nick> :Nickname is already in use"
+    _ERR_NICKNAMEINUSE = "{nickname} :Nickname is already in use"
     ERR_NICKCOLLISION = 436
-    _ERR_NICKCOLLISION = "<nick> :Nickname collision KILL"
+    _ERR_NICKCOLLISION = "{nickname} :Nickname collision KILL"
     ERR_USERNOTINCHANNEL = 441
-    _ERR_USERNOTINCHANNEL = "<nick> <channel> :They aren't on that channel"
+    _ERR_USERNOTINCHANNEL = "{nickname} {channel_name} :They aren't on that channel"
     ERR_NOTONCHANNEL = 442
-    _ERR_NOTONCHANNEL = "<channel> :You're not on that channel"
+    _ERR_NOTONCHANNEL = "{channel_name} :You're not on that channel"
     ERR_USERONCHANNEL = 443
-    _ERR_USERONCHANNEL = "<user> <channel> :is already on channel"
+    _ERR_USERONCHANNEL = "{user} {channel_name} :is already on channel"
     ERR_NOLOGIN = 444
-    _ERR_NOLOGIN = "<user> :User not logged in"
+    _ERR_NOLOGIN = "{user} :User not logged in"
     ERR_SUMMONDISABLED = 445
     _ERR_SUMMONDISABLED = ":SUMMON has been disabled"
     ERR_USERSDISABLED = 446
@@ -208,7 +210,7 @@ class IrcErrors(enum.Enum):
     ERR_NOTREGISTERED = 451
     _ERR_NOTREGISTERED = ":You have not registered"
     ERR_NEEDMOREPARAMS = 461
-    _ERR_NEEDMOREPARAMS = "<command> :Not enough parameters"
+    _ERR_NEEDMOREPARAMS = "{command} :Not enough parameters"
     ERR_ALREADYREGISTERED = 462
     _ERR_ALREADYREGISTERED = ":You may not reregister"
     ERR_NOPERMFORHOST = 463
@@ -218,21 +220,21 @@ class IrcErrors(enum.Enum):
     ERR_YOUREBANNEDCREEP = 465
     _ERR_YOUREBANNEDCREEP = ":You are banned from this server"
     ERR_KEYSET = 467
-    _ERR_KEYSET = "<channel> :Channel key already set"
+    _ERR_KEYSET = "{channel_name} :Channel key already set"
     ERR_CHANNELISFULL = 471
-    _ERR_CHANNELISFULL = "<channel> :Cannot join channel (+l)"
+    _ERR_CHANNELISFULL = "{channel_name} :Cannot join channel (+l)"
     ERR_UNKNOWNMODE = 472
-    _ERR_UNKNOWNMODE = "<char> :is unknown mode char to me"
+    _ERR_UNKNOWNMODE = "{char} :is unknown mode char to me"
     ERR_INVITEONLYCHAN = 473
-    _ERR_INVITEONLYCHAN = "<channel> :Cannot join channel (+i)"
+    _ERR_INVITEONLYCHAN = "{channel_name} :Cannot join channel (+i)"
     ERR_BANNEDFROMCHAN = 474
-    _ERR_BANNEDFROMCHAN = "<channel> :Cannot join channel (+b)"
+    _ERR_BANNEDFROMCHAN = "{channel_name} :Cannot join channel (+b)"
     ERR_BADCHANNELKEY = 475
-    _ERR_BADCHANNELKEY = "<channel> :Cannot join channel (+k)"
+    _ERR_BADCHANNELKEY = "{channel_name} :Cannot join channel (+k)"
     ERR_NOPRIVILEGES = 481
     _ERR_NOPRIVILEGES = ":Permission Denied- You're not an IRC operator"
     ERR_CHANOPRIVSNEEDED = 482
-    _ERR_CHANOPRIVSNEEDED = "<channel> :You're not channel operator"
+    _ERR_CHANOPRIVSNEEDED = "{channel_name} :You're not channel operator"
     ERR_CANTKILLSERVER = 483
     _ERR_CANTKILLSERVER = ":You cant kill a server!"
     ERR_NOOPERHOST = 491
@@ -339,7 +341,7 @@ class IrcCommandResponse(enum.Enum):
         Reply format used by USERHOST to list replies to the query list.
         The reply string is composed as follows:
 
-        <reply> ::= <nick>['*'] '=' <'+'|'-'><hostname>
+        <reply> ::= {nickname}['*'] '=' <'+'|'-'><hostname>
 
         The '*' indicates whether the client has registered as an
         Operator. The '-' or '+' characters represent whether the client
@@ -497,17 +499,17 @@ class IrcCommandResponse(enum.Enum):
     _RPL_TRACELINK = "Link <version & debug level> <destination> "\
                          "<next server>"
     RPL_TRACECONNECTING = 201
-    _RPL_TRACECONNECTING = "Try. <class> <server>"
+    _RPL_TRACECONNECTING = "Try. <class> {server_name}"
     RPL_TRACEHANDSHAKE = 202
-    _RPL_TRACEHANDSHAKE = "H.S. <class> <server>"
+    _RPL_TRACEHANDSHAKE = "H.S. <class> {server_name}"
     RPL_TRACEUNKNOWN = 203
     _RPL_TRACEUNKNOWN = "???? <class> [<client IP address in dot form>]"
     RPL_TRACEOPERATOR = 204
-    _RPL_TRACEOPERATOR = "Oper <class> <nick>"
+    _RPL_TRACEOPERATOR = "Oper <class> {nickname}"
     RPL_TRACEUSER = 205
-    _RPL_TRACEUSER = "User <class> <nick>"
+    _RPL_TRACEUSER = "User <class> {nickname}"
     RPL_TRACESERVER = 206
-    _RPL_TRACESERVER = "Serv <class> <int>S <int>C <server> "\
+    _RPL_TRACESERVER = "Serv <class> <int>S <int>C {server_name} "\
                          "<nick!user|*!*>@<host|server>"
     RPL_TRACENEWTYPE = 208
     _RPL_TRACENEWTYPE = "<newtype> 0 <client name>"
@@ -516,7 +518,7 @@ class IrcCommandResponse(enum.Enum):
                              "<sent bytes> <received messages> " \
                              "<received bytes> <time open>"
     RPL_STATSCOMMANDS = 212
-    _RPL_STATSCOMMANDS  = "<command> <count>"
+    _RPL_STATSCOMMANDS  = "{command} <count>"
     RPL_STATSCLINE = 213
     _RPL_STATSCLINE = "C <host> * <name> <port> <class>"
     RPL_STATSNLINE = 214
@@ -553,7 +555,7 @@ class IrcCommandResponse(enum.Enum):
     _RPL_LUSERME = ":I have <integer> clients and <integer> \
                           servers"
     RPL_ADMINME = 256
-    _RPL_ADMINME = "<server> :Administrative info"
+    _RPL_ADMINME = "{server_name} :Administrative info"
     RPL_ADMINLOC1 = 257
     _RPL_ADMINLOC1 = ":<admin info1>"
     RPL_ADMINLOC2 = 258
@@ -565,66 +567,66 @@ class IrcCommandResponse(enum.Enum):
     RPL_NONE = 300
     _RPL_NONE = ""
     RPL_AWAY = 301
-    _RPL_AWAY = "<nick> :<away message>"
+    _RPL_AWAY = "{nickname} :<away message>"
     RPL_USERHOST = 302
     _RPL_USERHOST = ":[<reply>{<space><reply>}]"
     RPL_ISON = 303
-    _RPL_ISON = ":[<nick> {<space><nick>}]"
+    _RPL_ISON = ":[{nickname} {<space>{nickname}}]"
     RPL_UNAWAY = 305
     _RPL_UNAWAY = ":You are no longer marked as being away"
     RPL_NOWAWAY = 306
     _RPL_NOWAWAY = ":You have been marked as being away"
     RPL_WHOISUSER = 311
-    _RPL_WHOISUSER = "<nick> <user> <host> * :<real name>"
+    _RPL_WHOISUSER = "{nickname} {user} <host> * :<real name>"
     RPL_WHOISSERVER = 312
-    _RPL_WHOISSERVER = "<nick> <server> :<server info>"
+    _RPL_WHOISSERVER = "{nickname} {server_name} :<server info>"
     RPL_WHOISOPERATOR = 313
-    _RPL_WHOISOPERATOR = "<nick> :is an IRC operator"
+    _RPL_WHOISOPERATOR = "{nickname} :is an IRC operator"
     RPL_WHOWASUSER = 314
-    _RPL_WHOWASUSER = "<former nick> <user> <host> * :<real name>"
+    _RPL_WHOWASUSER = "<former nick> {user} <host> * :<real name>"
     RPL_ENDOFWHO = 315
     _RPL_ENDOFWHO = "<name> :End of /WHO list"
     RPL_WHOISIDLE = 317
-    _RPL_WHOISIDLE = "<nick> <integer> :seconds idle"
+    _RPL_WHOISIDLE = "{nickname} <integer> :seconds idle"
     RPL_ENDOFWHOIS = 318
-    _RPL_ENDOFWHOIS = "<nick> :End of /WHOIS list"
+    _RPL_ENDOFWHOIS = "{nickname} :End of /WHOIS list"
     RPL_WHOISCHANNELS = 319
-    _RPL_WHOISCHANNELS = "<nick> :{[@|+]<channel><space>}"
+    _RPL_WHOISCHANNELS = "{nickname} :{[@|+]{channel_name}<space>}"
     RPL_LISTSTART = 321
     _RPL_LISTSTART = "Channel :Users  Name"
     RPL_LIST = 322
-    _RPL_LIST = "<channel> <# visible> :<topic>"
+    _RPL_LIST = "{channel_name} <# visible> :<topic>"
     RPL_LISTEND = 323
     _RPL_LISTEND = ":End of /LIST"
     RPL_CHANNELMODEIS = 324
-    _RPL_CHANNELMODEIS = "<channel> <mode> <mode params>"
+    _RPL_CHANNELMODEIS = "{channel_name} <mode> <mode params>"
     RPL_NOTOPIC = 331
-    _RPL_NOTOPIC = "<channel> :No topic is set"
+    _RPL_NOTOPIC = "{channel_name} :No topic is set"
     RPL_TOPIC = 332
-    _RPL_TOPIC = "<channel> :<topic>"
+    _RPL_TOPIC = "{channel_name} :<topic>"
     RPL_INVITING = 341
-    _RPL_INVITING = "<channel> <nick>"
+    _RPL_INVITING = "{channel_name} {nickname}"
     RPL_SUMMONING = 342
-    _RPL_SUMMONING = "<user> :Summoning user to IRC"
+    _RPL_SUMMONING = "{user} :Summoning user to IRC"
     RPL_VERSION = 351
-    _RPL_VERSION = "<version>.<debuglevel> <server> :<comments>"
+    _RPL_VERSION = "<version>.<debuglevel> {server_name} :<comments>"
     RPL_WHOREPLY = 352
-    _RPL_WHOREPLY = "<channel> <user> <host> <server> <nick> " \
+    _RPL_WHOREPLY = "{channel_name} {user} <host> {server_name} {nickname} " \
                         "<H|G>[*][@|+] :<hopcount> <real name>"
     RPL_NAMEREPLY = 353
-    _RPL_NAMEREPLY = "<channel> :[[@|+]<nick> [[@|+]<nick> [...]]]"
+    _RPL_NAMEREPLY = "{channel_name} :[[@|+]{nickname} [[@|+]{nickname} [...]]]"
     RPL_LINKS = 364
-    _RPL_LINKS = "<mask> <server> :<hopcount> <server info>"
+    _RPL_LINKS = "{mask} {server_name} :<hopcount> <server info>"
     RPL_ENDOFLINKS = 365
-    _RPL_ENDOFLINKS = "<mask> :End of /LINKS list"
+    _RPL_ENDOFLINKS = "{mask} :End of /LINKS list"
     RPL_ENDOFNAMES = 366
-    _RPL_ENDOFNAMES = "<channel> :End of /NAMES list"
+    _RPL_ENDOFNAMES = "{channel_name} :End of /NAMES list"
     RPL_BANLIST = 367
-    _RPL_BANLIST = "<channel> <banid>"
+    _RPL_BANLIST = "{channel_name} <banid>"
     RPL_ENDOFBANLIST = 368
-    _RPL_ENDOFBANLIST = "<channel> :End of channel ban list"
+    _RPL_ENDOFBANLIST = "{channel_name} :End of channel ban list"
     RPL_ENDOFWHOWAS = 369
-    _RPL_ENDOFWHOWAS = "<nick> :End of WHOWAS"
+    _RPL_ENDOFWHOWAS = "{nickname} :End of WHOWAS"
     RPL_INFO = 371
     _RPL_INFO = ":<string>"
     RPL_MOTD = 372
@@ -632,7 +634,7 @@ class IrcCommandResponse(enum.Enum):
     RPL_ENDOFINFO = 374
     _RPL_ENDOFINFO = ":End of /INFO list"
     RPL_MOTDSTART = 375
-    _RPL_MOTDSTART = ":- <server> Message of the day - "
+    _RPL_MOTDSTART = ":- {server_name} Message of the day - "
     RPL_ENDOFMOTD = 376
     _RPL_ENDOFMOTD = ":End of /MOTD command"
     RPL_YOUREOPER = 381
@@ -640,7 +642,7 @@ class IrcCommandResponse(enum.Enum):
     RPL_REHASHING = 382
     _RPL_REHASHING = "<config file> :Rehashing"
     RPL_TIME = 391
-    _RPL_TIME = "<server> :<string showing server's local time>"
+    _RPL_TIME = "{server_name} :<string showing server's local time>"
     RPL_USERSSTART = 392
     _RPL_USERSSTART = ":UserID   Terminal  Host"
     RPL_USERS = 393
@@ -678,3 +680,35 @@ class IrcReservedCodes(enum.Enum):
     ERR_YOUWILLBEBANNED = 466
     ERR_BADCHANMASK = 476
     ERR_NOSERVICEHOST = 492
+
+@enum.unique
+class IrcChannelModes(enum.Enum):
+    """IRC channel modes for the MODE command."""
+
+    OPERATOR = 'o'
+    PRIVATE = 'p'
+    SECRET = 's'
+    INVITE = 'i'
+    TOPIC = 't'
+    NO_MESSAGES  = 'n'
+    MODERATED = 'm'
+    LIMIT = 'l'
+    BAN = 'b'
+    ABILITY = 'v'
+    KEY = 'k'
+
+@enum.unique
+class IrcUserModes(enum.Enum):
+    """IRC user modes for the MODE command."""
+
+    INVISIBLE = 'i'
+    SERVER_NOTICES = 's'
+    WALLOP = 'w'
+    OPERATOR = 'o'
+
+@enum.unique
+class IrcModeChanges(enum.Enum):
+    """Modifiers for user/channel modes."""
+
+    GIVE = "+"
+    TAKE = "-"

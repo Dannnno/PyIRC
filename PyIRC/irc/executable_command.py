@@ -61,7 +61,7 @@ class CommandParameterSet(object):
 		"""Add another parameter to the parameter list in the given
 		location, or append if not specified.
 
-		We can't guarantee the order in which the decorators will 
+		We can't guarantee the order in which the decorators will
 		execute, so this is a little flexible. If you insert at a
 		greater index than is currently supported, we'll fill it out
 		with `None` until we can fit it in. If you insert at a location
@@ -80,7 +80,7 @@ class CommandParameterSet(object):
 		if index < 0:
 			raise IndexError(
 				"CommandParameterSet doesn't support negative indices")
-		
+
 		diff = index - len(self.parameters)
 		if diff == 0:
 			self.parameters.append(parameter)
@@ -196,17 +196,17 @@ class CommandParameter(object):
 		validator: function(value) -> string | None
 			Function that takes in a value and returns an error message,
 			or None if it was okay. If there are multiple values allowed
-			(i.e. `count_type != None`) then this is called for each 
-			item in the collection, _instead_ of on the entire 
+			(i.e. `count_type != None`) then this is called for each
+			item in the collection, _instead_ of on the entire
 			collection.
 		optional: boolean, default=False
 			Whether or not the parameter is optional. If it is optional,
 			then `None` should be passed for validation.
 		count_type: CountType, default=None
-			Required if a `count` is given; describes how to interpret 
+			Required if a `count` is given; describes how to interpret
 			the count (as a max, min, or exact requirement).
 		count: integer, default=1
-			Describes how many instances of this value are allowed. If 
+			Describes how many instances of this value are allowed. If
 			greater than 1, then `count_type` is required. If 0 or more
 			are allowed, then pass `count=0` and
 			`count_type=CountTypes.MIN`
@@ -259,7 +259,7 @@ class CommandParameter(object):
 		elif len(value) != self.count:
 			return "Expected exactly {} parameters, but got {}".format(
 				self.count, len(value))
-			
+
 		return None
 
 	def __str__(self):
@@ -278,14 +278,14 @@ class CommandParameter(object):
 		return \
 			"CommandParameter('{}', {}, optional={}, count_type={}, count={})"\
 			.format(
-				self.name, self.validator.__name__, self.optional, 
+				self.name, self.validator.__name__, self.optional,
 				self.count_type, self.count)
 
 	def __eq__(self, other):
 		"""Check whether or not two CommandParameters are equal."""
 
 		try:
-			return (self.name == other.name 
+			return (self.name == other.name
 				and self.validator is other.validator
 				and self.optional is other.optional
 				and self.count_type is other.count_type
@@ -314,7 +314,7 @@ class NoHandlerExcepetion(Exception):
 class ExecutableCommandMixin(object):
 	"""Mixin to make an enum of commands executable.
 
-	Enables parameterizing a given command and specifying how to 
+	Enables parameterizing a given command and specifying how to
 	validate each parameter, as well as specifying what "executing" the
 	command means. Does so by providing decorator functions that will
 	register functions as parameter validation or command execution.
@@ -339,8 +339,10 @@ class ExecutableCommandMixin(object):
 
 	def execute_command(self, *values):
 		problems = self._validate_arguments(values)
-		if problems:
-			raise InvalidCommandParametersException(self, problems)
+		overall_problems = self.validator(*values)
+		if problems or overall_problems:
+			raise InvalidCommandParametersException(
+				self, problems + overall_problems)
 
 		return self.execution(*values)
 
@@ -386,12 +388,12 @@ class ExecutableCommandMixin(object):
 			Whether or not the parameter is optional. If it is optional,
 			then `None` should be passed for validation.
 		count: integer, default=1
-			Describes how many instances of this value are allowed. If 
+			Describes how many instances of this value are allowed. If
 			greater than 1, then `count_type` is required. If 0 or more
 			are allowed, then pass `count=0` and
 			`count_type=CountTypes.MIN`
 		count_type: CountType, default=None
-			Required if a `count` is given; describes how to interpret 
+			Required if a `count` is given; describes how to interpret
 			the count (as a max, min, or exact requirement).
 
 		Returns
@@ -407,10 +409,10 @@ class ExecutableCommandMixin(object):
 			Parameters
 			----------
 			validator: function(value) -> string | None
-				Function that takes in a value and returns an error 
-				message, or None if it was okay. If there are multiple 
-				values allowed (i.e. `count_type != None`) then this is 
-				called for each item in the collection, _instead_ of on 
+				Function that takes in a value and returns an error
+				message, or None if it was okay. If there are multiple
+				values allowed (i.e. `count_type != None`) then this is
+				called for each item in the collection, _instead_ of on
 				the entire collection.
 
 			Returns
@@ -420,13 +422,38 @@ class ExecutableCommandMixin(object):
 			"""
 
 			self.parameters.insert_parameter(
-				CommandParameter(name, validator, optional=optional, 
+				CommandParameter(name, validator, optional=optional,
 					count=count, count_type=count_type),
 				n_th)
 
 			return validator
 
 		return decorator
+
+	_validator = None
+	@property
+	def validator(self):
+		"""Validator over the entire command; used to validate anything
+		that requires more information than just a single parameter.
+		"""
+
+		if self._validator is None:
+			self._validator = lambda *args, **kwargs: []
+		return self._validator
+
+	def register_validator(self, f):
+		"""
+		Register an object-level validator; i.e. one that operates on
+		the entire parameter set instead of an individual parameter.
+
+		Parameters
+		----------
+		f: callable
+			Function to validate an entire parameter set.
+		"""
+
+		self._validator = f
+		return f
 
 	def _validate_arguments(self, arguments):
 		"""Validate the command's arguments.
@@ -443,11 +470,8 @@ class ExecutableCommandMixin(object):
 			empty list if no problems are present.
 		"""
 
-		errors = list(self.parameters.validate(arguments))
-
-		if not errors or all(err is None for err in errors):
-			return []
-		return errors
+		return [error for error in self.parameters.validate(arguments)
+				if error is not None]
 
 	_error_handlers = None
 	@property
@@ -458,18 +482,20 @@ class ExecutableCommandMixin(object):
 			self._error_handlers = {}
 		return self._error_handlers
 
-	def handle_error(self, error):
+	def handle_error(self, error, **context):
 		"""Handle the error for this command.
 
 		Parameters
 		----------
 		error: hashable
 			The error to handle.
+		context: dict
+			Any additional context to provide to the handler.
 		"""
 
 		handler = self.error_handlers.get(error, NoHandlerExcepetion)
 
-		result = handler(self, error)
+		result = handler(self, error, **context)
 
 		try:
 			raise result
@@ -487,7 +513,7 @@ class ExecutableCommandMixin(object):
 		Returns
 		-------
 		decorator: function
-			Decorator function that registers error handlers for a 
+			Decorator function that registers error handlers for a
 			command.
 		"""
 
