@@ -16,10 +16,13 @@ except ImportError:
 
 
 def something_bad(x):
-	return "Something Bad"
+	return False, "Something bad"
 
 def something_good(x):
-	return None
+	return True, None
+
+def something_error(x):
+	raise KeyError(x)
 
 
 class TestCommandParameterSet(unittest.TestCase):
@@ -237,6 +240,7 @@ class TestCommandParameter(unittest.TestCase):
 		self.assertIs(cp.validator, something_bad)
 		self.assertIs(cp.optional, False)
 		self.assertIs(cp.count_type, None)
+		self.assertEquals(cp.expected_exceptions, ())
 
 	def test___init___not_callable(self):
 		"""Test that a non-callable validator is an error."""

@@ -1,530 +1,537 @@
 # Force Python 3 behaviors
 from __future__ import print_function, unicode_literals, absolute_import
 
-try:
-	import enum34 as enum
-except ImportError:
-	import enum
+import enum
 
 try:
-	from itertools import izip as zip
+    from itertools import izip as zip
 except ImportError:
-	pass
+    pass
 
 try:
-	range = xrange
+    range = xrange
 except NameError:
-	pass
+    pass
 
 from collections import defaultdict
 from itertools import izip_longest
+from textwrap import dedent
 
 __all__ = [
-	"InvalidCommandParametersException", "CommandParameterSet",
-	"CommandParameter", "CountType", "ExecutableCommandMixin"]
+    "InvalidCommandParametersException", "CommandParameterSet",
+    "CommandParameter", "CountType", "ExecutableCommandMixin"]
 
 
 class InvalidCommandParametersException(Exception):
-	"""Raised when the parameters to a command are invalid."""
+    """Raised when the parameters to a command are invalid."""
 
-	def __init__(self, command, param_problems):
-		"""Raise an error that a command's parameters are invalid.
+    def __init__(self, command, param_problems):
+        """Raise an error that a command's parameters are invalid.
 
-		Parameters
-		----------
-		command: Command
-			The command type that failed validation.
-		param_problems: iterable[string]
-			Collection of problems with the parameters
-		"""
+        Parameters
+        ----------
+        command: Command
+            The command type that failed validation.
+        param_problems: iterable[string]
+            Collection of problems with the parameters
+        """
 
-		message = '\n'.join(["Command: {}".format(command.name)] + param_problems)
-		super(InvalidCommandParametersException, self).__init__(message)
+        message = '\n'.join(["Command: {}".format(command.name)] + param_problems)
+        super(InvalidCommandParametersException, self).__init__(message)
 
 
 class CommandParameterSet(object):
-	"""A set of parameters to a command."""
+    """A set of parameters to a command."""
 
-	def __init__(self, *parameters):
-		"""Create a new CommandParameterSet.
+    def __init__(self, *parameters):
+        """Create a new CommandParameterSet.
 
-		Parameters
-		----------
-		parameters: iterable[CommandParameter]
-			Collection of parameters that we expect to see. Must be an
-			empty list if no parameters expected.
-		"""
+        Parameters
+        ----------
+        parameters: iterable[CommandParameter]
+            Collection of parameters that we expect to see. Must be an
+            empty list if no parameters expected.
+        """
 
-		self.parameters = list(parameters) or []
+        self.parameters = list(parameters) or []
 
-	def insert_parameter(self, parameter, index=None):
-		"""Add another parameter to the parameter list in the given
-		location, or append if not specified.
+    def insert_parameter(self, parameter, index=None):
+        """Add another parameter to the parameter list in the given
+        location, or append if not specified.
 
-		We can't guarantee the order in which the decorators will
-		execute, so this is a little flexible. If you insert at a
-		greater index than is currently supported, we'll fill it out
-		with `None` until we can fit it in. If you insert at a location
-		that is already populated we just replace it.
+        We can't guarantee the order in which the decorators will
+        execute, so this is a little flexible. If you insert at a
+        greater index than is currently supported, we'll fill it out
+        with `None` until we can fit it in. If you insert at a location
+        that is already populated we just replace it.
 
-		Parameters
-		----------
-		parameter: CommandParameter
-			A parameter to insert into this set.
-		index: indexer, default=None
-			Where to insert the parameter; if None then just append it.
-		"""
+        Parameters
+        ----------
+        parameter: CommandParameter
+            A parameter to insert into this set.
+        index: indexer, default=None
+            Where to insert the parameter; if None then just append it.
+        """
 
-		if index is None:
-			index = len(self.parameters)
-		if index < 0:
-			raise IndexError(
-				"CommandParameterSet doesn't support negative indices")
+        if index is None:
+            index = len(self.parameters)
+        if index < 0:
+            raise IndexError(
+                "CommandParameterSet doesn't support negative indices")
 
-		diff = index - len(self.parameters)
-		if diff == 0:
-			self.parameters.append(parameter)
-		elif diff > 0:
-			self.parameters.extend([None]*diff + [parameter])
-		else:
-			self.parameters[index] = parameter
+        diff = index - len(self.parameters)
+        if diff == 0:
+            self.parameters.append(parameter)
+        elif diff > 0:
+            self.parameters.extend([None]*diff + [parameter])
+        else:
+            self.parameters[index] = parameter
 
-	def validate(self, values):
-		"""Check if the given values pass parameter validation.
+    def validate(self, values):
+        """Check if the given values pass parameter validation.
 
-		We have to have filled in all of the parameters; if any are
-		`None` then this will fail as well.
+        We have to have filled in all of the parameters; if any are
+        `None` then this will fail as well.
 
-		Parameters
-		----------
-		values: iterable[Object]
-			Collection of the values that we expect to see. Must be an
-			empty list if no values to check.
+        Parameters
+        ----------
+        values: iterable[Object]
+            Collection of the values that we expect to see. Must be an
+            empty list if no values to check.
 
-		Returns
-		-------
-		result: generator[string]
-			Yields all of the errors found; if none, then an empty generator
-			is returned.
-		"""
+        Returns
+        -------
+        result: generator[string]
+            Yields all of the errors found; if none, then an empty generator
+            is returned.
+        """
 
-		if any(param is None for param in self.parameters):
-			yield "Not all parameters are populated."
-		elif len(values) != len(self.parameters):
-			yield "Expected {} parameters, got {}".format(
-				len(self.parameters), len(values))
-		else:
-			for i, (val, param) in enumerate(zip(values, self.parameters)):
-				problem = param.validate(val)
-				if problem:
-					yield "{i}-{name} was {val} but {problem}".format(
-						name=param.name, **locals())
+        if any(param is None for param in self.parameters):
+            yield "Not all parameters are populated."
+        elif len(values) != len(self.parameters):
+            yield "Expected {} parameters, got {}".format(
+                len(self.parameters), len(values))
+        else:
+            for i, (val, param) in enumerate(zip(values, self.parameters)):
+                problem = param.validate(val)
+                if problem:
+                    yield "{i}-{name} was {val} but {problem}".format(
+                        name=param.name, **locals())
 
-	def __str__(self):
-		"""Returns a string representation of the set."""
+    def __str__(self):
+        """Returns a string representation of the set."""
 
-		return "CommandParameterSet[{}]".format(len(self.parameters))
+        return "CommandParameterSet[{}]".format(len(self.parameters))
 
-	def __unicode__(self):
-		"""Returns the unicode string representation of the set."""
+    def __unicode__(self):
+        """Returns the unicode string representation of the set."""
 
-		return unicode(str(self))
+        return unicode(str(self))
 
-	def __repr__(self):
-		"""Returns a round-trippable representation of the set."""
+    def __repr__(self):
+        """Returns a round-trippable representation of the set."""
 
-		return "CommandParameterSet({})".format(
-					", ".join(repr(param) for param in self.parameters))
+        return "CommandParameterSet({})".format(
+                    ", ".join(repr(param) for param in self.parameters))
 
-	def __eq__(self, other):
-		"""Check whether or not two CommandParameterSets are equal."""
+    def __eq__(self, other):
+        """Check whether or not two CommandParameterSets are equal."""
 
-		if len(self) != len(other):
-			return False
+        if len(self) != len(other):
+            return False
 
-		return all(me == them for me, them in izip_longest(self, other, fillvalue=None))
+        return all(me == them for me, them in izip_longest(self, other, fillvalue=None))
 
-	def __ne__(self, other):
-		"""Check whether or not two CommandPArameterSets are not equal."""
+    def __ne__(self, other):
+        """Check whether or not two CommandPArameterSets are not equal."""
 
-		return not (self == other)
+        return not (self == other)
 
-	def __len__(self):
-		"""Returns the number of parameters in the set."""
+    def __len__(self):
+        """Returns the number of parameters in the set."""
 
-		return len(self.parameters)
+        return len(self.parameters)
 
-	def __iter__(self):
-		"""Return an iterator for this command parameter set."""
+    def __iter__(self):
+        """Return an iterator for this command parameter set."""
 
-		for param in self.parameters:
-			yield param
+        for param in self.parameters:
+            yield param
 
 
 @enum.unique
 class CountType(enum.Enum):
-	"""Possible types of "counts" we could have.
+    """Possible types of "counts" we could have.
 
-	Attributes
-	----------
-	MAX
-		The given "count" is the most allowed.
-	MIN
-		The given "count" is the least allowed.
-	EXACT
-		The given "count" is exactly the number expected.
-	"""
+    Attributes
+    ----------
+    MAX
+        The given "count" is the most allowed.
+    MIN
+        The given "count" is the least allowed.
+    EXACT
+        The given "count" is exactly the number expected.
+    """
 
-	MAX = 1
-	MIN = 2
-	EXACT = 3
+    MAX = 1
+    MIN = 2
+    EXACT = 3
 
 
 class CommandParameter(object):
-	"""Parameter to a command.
+    """Parameter to a command.
 
-	Can specify validation code and options for validation.
-	"""
+    Can specify validation code and options for validation.
+    """
 
-	def __init__(self, name, validator, optional=False, count_type=None, count=1):
-		"""Create a new CommandParameter.
+    def __init__(self, name, validator, optional=False, count_type=None,
+                 count=1, expected_exceptions=()):
+        """Create a new CommandParameter.
 
-		Parameters
-		----------
-		name: string
-			Name of the parameter; used to describe the parameter.
-		validator: function(value) -> string | None
-			Function that takes in a value and returns an error message,
-			or None if it was okay. If there are multiple values allowed
-			(i.e. `count_type != None`) then this is called for each
-			item in the collection, _instead_ of on the entire
-			collection.
-		optional: boolean, default=False
-			Whether or not the parameter is optional. If it is optional,
-			then `None` should be passed for validation.
-		count_type: CountType, default=None
-			Required if a `count` is given; describes how to interpret
-			the count (as a max, min, or exact requirement).
-		count: integer, default=1
-			Describes how many instances of this value are allowed. If
-			greater than 1, then `count_type` is required. If 0 or more
-			are allowed, then pass `count=0` and
-			`count_type=CountTypes.MIN`
-		"""
+        Parameters
+        ----------
+        name: string
+            Name of the parameter; used to describe the parameter.
+        validator: function(value) -> (boolean, string)
+            Function that takes in a value and determines whether or not
+            it is valid. May also raise one of the `expected_exceptions`
+            to indicate that a value is invalid. If there are multiple
+            values allowed (i.e. `count_type != None`) then this is
+            called for each item in the collection, _instead_ of on the
+            entire collection.
+        optional: boolean, default=False
+            Whether or not the parameter is optional. If it is optional,
+            then `None` should be passed for validation.
+        count_type: CountType, default=None
+            Required if a `count` is given; describes how to interpret
+            the count (as a max, min, or exact requirement).
+        count: integer, default=1
+            Describes how many instances of this value are allowed. If
+            greater than 1, then `count_type` is required. If 0 or more
+            are allowed, then pass `count=0` and
+            `count_type=CountTypes.MIN`
+        expected_exceptions: tuple, default=()
+        	Tuple of the exceptions that may be raised by the validation
+        	function to signal an invalid value.
+        """
 
-		self.name = name
-		self.validator = validator
-		self.optional = optional
-		self.count = count
-		self.count_type = count_type
+        self.name = name
+        self.validator = validator
+        self.optional = optional
+        self.count = count
+        self.count_type = count_type
+        self.expected_exceptions = expected_exceptions
 
-		if not callable(validator):
-			raise TypeError("Validator must be callable")
-		if count < 0:
-			raise AttributeError("Count must be positive; was {}".format(count))
-		if int(count) != count:
-			raise TypeError("Count must be an integer; was {}".format(count))
-		if count > 1 and count_type is None:
-			raise AttributeError(
-				"Count type is required if multiple values are allowed.")
-		if count == 0 and count_type is not CountType.MIN:
-			raise AttributeError(
-				"Count and count type would require 0 or fewer values.")
+        if not callable(validator):
+            raise TypeError("Validator must be callable")
+        if count < 0:
+            raise AttributeError("Count must be positive; was {}".format(count))
+        if int(count) != count:
+            raise TypeError("Count must be an integer; was {}".format(count))
+        if count > 1 and count_type is None:
+            raise AttributeError(
+                "Count type is required if multiple values are allowed.")
+        if count == 0 and count_type is not CountType.MIN:
+            raise AttributeError(
+                "Count and count type would require 0 or fewer values.")
 
-	def validate(self, value):
-		"""Check if the given value satisfies this parameter.
+    def validate(self, value):
+        """Check if the given value satisfies this parameter.
 
-		Parameters
-		----------
-		value: Object
-			The value to check for this parameter.
+        Parameters
+        ----------
+        value: Object
+            The value to check for this parameter.
 
-		Returns
-		-------
-		result: string|None
-			None if the result is okay, otherwise an error message.
-		"""
+        Returns
+        -------
+        result: string|None
+            None if the result is okay, otherwise an error message.
+        """
 
-		if self.optional and value is None:
-			return None
+        if self.optional and value is None:
+            return True, None
 
-		if not self.count_type:
-			return self.validator(value)
-		elif self.count_type == CountType.MAX and len(value) > self.count:
-			return "Expected no more than {} parameters, but got {}".format(
-				self.count, len(value))
-		elif self.count_type == CountType.MIN and len(value) < self.count:
-			return "Expected no less than {} parameters, but got {}".format(
-				self.count, len(value))
-		elif len(value) != self.count:
-			return "Expected exactly {} parameters, but got {}".format(
-				self.count, len(value))
+        if not self.count_type:
+            try:
+                return self.validator(value)
+            except self.expected_exceptions as e:
+                return False, e.message
 
-		return None
+        if self.count_type == CountType.MAX and len(value) > self.count:
+            return False, "Expected no more than {} parameters, but got {}".format(
+                self.count, len(value))
 
-	def __str__(self):
-		"""Returns a string representation of the parameter."""
+        if self.count_type == CountType.MIN and len(value) < self.count:
+            return False, "Expected no less than {} parameters, but got {}".format(
+                self.count, len(value))
 
-		return "CommandParameter"
+        if len(value) != self.count:
+            return False, "Expected exactly {} parameters, but got {}".format(
+                self.count, len(value))
 
-	def __unicode__(self):
-		"""Returns the unicode string representation of the set."""
+        return True, None
 
-		return unicode(str(self))
+    def __str__(self):
+        """Returns a string representation of the parameter."""
 
-	def __repr__(self):
-		"""Returns a round-trippable representation of the set."""
+        return "CommandParameter"
 
-		return \
-			"CommandParameter('{}', {}, optional={}, count_type={}, count={})"\
-			.format(
-				self.name, self.validator.__name__, self.optional,
-				self.count_type, self.count)
+    def __unicode__(self):
+        """Returns the unicode string representation of the set."""
 
-	def __eq__(self, other):
-		"""Check whether or not two CommandParameters are equal."""
+        return unicode(str(self))
 
-		try:
-			return (self.name == other.name
-				and self.validator is other.validator
-				and self.optional is other.optional
-				and self.count_type is other.count_type
-				and self.count == other.count)
-		except AttributeError:
-			raise TypeError(
-				"CommandParameter and type <{}> can't be compared.".format(
-					type(other)))
+    def __repr__(self):
+        return dedent(
+            """CommandParameter("{}", {}, optional={}, count_type={},
+                                count={}, expected_exceptions={})""".format(
+                self.name, self.validator.__name__, self.optional,
+                self.count_type, self.count, self.expected_exceptions))
 
-	def __ne__(self, other):
-		"""Check whether or not two CommandParameters are not equal."""
+    def __eq__(self, other):
+        try:
+            return (self.name == other.name
+                and self.validator is other.validator
+                and self.optional is other.optional
+                and self.count_type is other.count_type
+                and self.count == other.count
+                and self.expected_exceptions == other.expected_exceptions)
+        except AttributeError:
+            raise TypeError(
+                "CommandParameter and type <{}> can't be compared.".format(
+                    type(other)))
 
-		return not (self == other)
+    def __ne__(self, other):
+        """Check whether or not two CommandParameters are not equal."""
+
+        return not (self == other)
 
 
 class NoHandlerExcepetion(Exception):
-	"""
-	Exception to indicate that there is no handler for a given error.
-	"""
+    """
+    Exception to indicate that there is no handler for a given error.
+    """
 
-	def __init__(self, command, error):
-		super(NoHandlerExcepetion, self).__init__(
-			"Command {} - Error {}".format(command, error))
+    def __init__(self, command, error):
+        super(NoHandlerExcepetion, self).__init__(
+            "Command {} - Error {}".format(command, error))
 
 
 class ExecutableCommandMixin(object):
-	"""Mixin to make an enum of commands executable.
+    """Mixin to make an enum of commands executable.
 
-	Enables parameterizing a given command and specifying how to
-	validate each parameter, as well as specifying what "executing" the
-	command means. Does so by providing decorator functions that will
-	register functions as parameter validation or command execution.
+    Enables parameterizing a given command and specifying how to
+    validate each parameter, as well as specifying what "executing" the
+    command means. Does so by providing decorator functions that will
+    register functions as parameter validation or command execution.
 
-	Notes
-	-----
-	Does not subclass from `enum.Enum` because working around the
-	non-extensibility of enums with defined members is pretty inelegant.
+    Notes
+    -----
+    Does not subclass from `enum.Enum` because working around the
+    non-extensibility of enums with defined members is pretty inelegant.
 
-	Properties
-	----------
-	parameters: CommandParameterSet
-		Set of parameters for this command.
-	execution: function(*values) -> Object
-		Function that takes in the parameters and returns something.
-	error_handlers: dict(error: function|exception)
-		Dictionary of error handlers for a given command. An exception
-		type may be passed, in which case the error code will raise the
-		given exception with the command, the error code, and any
-		other available values.
-	"""
+    Properties
+    ----------
+    parameters: CommandParameterSet
+        Set of parameters for this command.
+    execution: function(*values) -> Object
+        Function that takes in the parameters and returns something.
+    error_handlers: dict(error: function|exception)
+        Dictionary of error handlers for a given command. An exception
+        type may be passed, in which case the error code will raise the
+        given exception with the command, the error code, and any
+        other available values.
+    """
 
-	def execute_command(self, *values):
-		problems = self._validate_arguments(values)
-		overall_problems = self.validator(*values)
-		if problems or overall_problems:
-			raise InvalidCommandParametersException(
-				self, problems + overall_problems)
+    def execute_command(self, *values):
+        problems = self._validate_arguments(values)
+        overall_problems = self.validator(*values)
+        if problems or overall_problems:
+            raise InvalidCommandParametersException(
+                self, problems + overall_problems)
 
-		return self.execution(*values)
+        return self.execution(*values)
 
-	_execution = None
-	@property
-	def execution(self):
-		return self._execution
+    _execution = None
+    @property
+    def execution(self):
+        return self._execution
 
-	def register_execution(self, func):
-		"""Register a function as this command's action.
+    def register_execution(self, func):
+        """Register a function as this command's action.
 
-		Parameters
-		----------
-		func: function
-			Function to execute for this parameter.
+        Parameters
+        ----------
+        func: function
+            Function to execute for this parameter.
 
-		Returns
-		-------
-		func: function
-			The original function, unchanged.
-		"""
+        Returns
+        -------
+        func: function
+            The original function, unchanged.
+        """
 
-		self._execution = func
-		return func
+        self._execution = func
+        return func
 
-	_parameters = None
-	@property
-	def parameters(self):
-		if self._parameters is None:
-			self._parameters = CommandParameterSet()
-		return self._parameters
+    _parameters = None
+    @property
+    def parameters(self):
+        if self._parameters is None:
+            self._parameters = CommandParameterSet()
+        return self._parameters
 
-	def register_parameter(self, name, n_th, optional=False, count=1, count_type=None):
-		"""Register a function to validate a given parameter.
+    def register_parameter(self, name, n_th, optional=False, count=1, count_type=None):
+        """Register a function to validate a given parameter.
 
-		Parameters
-		----------
-		name: string
-			Name of the parameter; used to describe the parameter.
-		n_th: indexer
-			Which parameter this should be in the parameter list.
-		optional: boolean, default=False
-			Whether or not the parameter is optional. If it is optional,
-			then `None` should be passed for validation.
-		count: integer, default=1
-			Describes how many instances of this value are allowed. If
-			greater than 1, then `count_type` is required. If 0 or more
-			are allowed, then pass `count=0` and
-			`count_type=CountTypes.MIN`
-		count_type: CountType, default=None
-			Required if a `count` is given; describes how to interpret
-			the count (as a max, min, or exact requirement).
+        Parameters
+        ----------
+        name: string
+            Name of the parameter; used to describe the parameter.
+        n_th: indexer
+            Which parameter this should be in the parameter list.
+        optional: boolean, default=False
+            Whether or not the parameter is optional. If it is optional,
+            then `None` should be passed for validation.
+        count: integer, default=1
+            Describes how many instances of this value are allowed. If
+            greater than 1, then `count_type` is required. If 0 or more
+            are allowed, then pass `count=0` and
+            `count_type=CountTypes.MIN`
+        count_type: CountType, default=None
+            Required if a `count` is given; describes how to interpret
+            the count (as a max, min, or exact requirement).
 
-		Returns
-		-------
-		decorator: function -> function
-			Wrapper function that wraps its argument function and adds
-			it as validation for this parameter
-		"""
+        Returns
+        -------
+        decorator: function -> function
+            Wrapper function that wraps its argument function and adds
+            it as validation for this parameter
+        """
 
-		def decorator(validator):
-			"""Add the actual validator function for this parameter.
+        def decorator(validator):
+            """Add the actual validator function for this parameter.
 
-			Parameters
-			----------
-			validator: function(value) -> string | None
-				Function that takes in a value and returns an error
-				message, or None if it was okay. If there are multiple
-				values allowed (i.e. `count_type != None`) then this is
-				called for each item in the collection, _instead_ of on
-				the entire collection.
+            Parameters
+            ----------
+            validator: function(value) -> string | None
+                Function that takes in a value and returns an error
+                message, or None if it was okay. If there are multiple
+                values allowed (i.e. `count_type != None`) then this is
+                called for each item in the collection, _instead_ of on
+                the entire collection.
 
-			Returns
-			-------
-			validator: function(value) -> string | None
-				The original function, unchanged.
-			"""
+            Returns
+            -------
+            validator: function(value) -> string | None
+                The original function, unchanged.
+            """
 
-			self.parameters.insert_parameter(
-				CommandParameter(name, validator, optional=optional,
-					count=count, count_type=count_type),
-				n_th)
+            self.parameters.insert_parameter(
+                CommandParameter(name, validator, optional=optional,
+                    count=count, count_type=count_type),
+                n_th)
 
-			return validator
+            return validator
 
-		return decorator
+        return decorator
 
-	_validator = None
-	@property
-	def validator(self):
-		"""Validator over the entire command; used to validate anything
-		that requires more information than just a single parameter.
-		"""
+    _validator = None
+    @property
+    def validator(self):
+        """Validator over the entire command; used to validate anything
+        that requires more information than just a single parameter.
+        """
 
-		if self._validator is None:
-			self._validator = lambda *args, **kwargs: []
-		return self._validator
+        if self._validator is None:
+            self._validator = lambda *args, **kwargs: []
+        return self._validator
 
-	def register_validator(self, f):
-		"""
-		Register an object-level validator; i.e. one that operates on
-		the entire parameter set instead of an individual parameter.
+    def register_validator(self, f):
+        """
+        Register an object-level validator; i.e. one that operates on
+        the entire parameter set instead of an individual parameter.
 
-		Parameters
-		----------
-		f: callable
-			Function to validate an entire parameter set.
-		"""
+        Parameters
+        ----------
+        f: callable
+            Function to validate an entire parameter set.
+        """
 
-		self._validator = f
-		return f
+        self._validator = f
+        return f
 
-	def _validate_arguments(self, arguments):
-		"""Validate the command's arguments.
+    def _validate_arguments(self, arguments):
+        """Validate the command's arguments.
 
-		Parameters
-		----------
-		arguments: collection[Object]
-			List of the arguments being passed.
+        Parameters
+        ----------
+        arguments: collection[Object]
+            List of the arguments being passed.
 
-		Returns
-		-------
-		list[string]
-			List of all of the problems with the arguments. Will be an
-			empty list if no problems are present.
-		"""
+        Returns
+        -------
+        list[string]
+            List of all of the problems with the arguments. Will be an
+            empty list if no problems are present.
+        """
 
-		return [error for error in self.parameters.validate(arguments)
-				if error is not None]
+        return [error for error in self.parameters.validate(arguments)
+                if error is not None]
 
-	_error_handlers = None
-	@property
-	def error_handlers(self):
-		"""Error handler for this command."""
+    _error_handlers = None
+    @property
+    def error_handlers(self):
+        """Error handler for this command."""
 
-		if self._error_handlers is None:
-			self._error_handlers = {}
-		return self._error_handlers
+        if self._error_handlers is None:
+            self._error_handlers = {}
+        return self._error_handlers
 
-	def handle_error(self, error, **context):
-		"""Handle the error for this command.
+    def handle_error(self, error, **context):
+        """Handle the error for this command.
 
-		Parameters
-		----------
-		error: hashable
-			The error to handle.
-		context: dict
-			Any additional context to provide to the handler.
-		"""
+        Parameters
+        ----------
+        error: hashable
+            The error to handle.
+        context: dict
+            Any additional context to provide to the handler.
+        """
 
-		handler = self.error_handlers.get(error, NoHandlerExcepetion)
+        handler = self.error_handlers.get(error, NoHandlerExcepetion)
 
-		result = handler(self, error, **context)
+        result = handler(self, error, **context)
 
-		try:
-			raise result
-		except TypeError:
-			return result
+        try:
+            raise result
+        except TypeError:
+            return result
 
-	def register_error_handler(self, error):
-		"""Register an error handler for a given command/error pair.
+    def register_error_handler(self, error):
+        """Register an error handler for a given command/error pair.
 
-		Parameters
-		----------
-		error: hashable
-			The error to handle.
+        Parameters
+        ----------
+        error: hashable
+            The error to handle.
 
-		Returns
-		-------
-		decorator: function
-			Decorator function that registers error handlers for a
-			command.
-		"""
+        Returns
+        -------
+        decorator: function
+            Decorator function that registers error handlers for a
+            command.
+        """
 
-		def decorator(f):
-			"""Do the actual registration."""
+        def decorator(f):
+            """Do the actual registration."""
 
-			if not callable(f):
-				raise TypeError(
-					"Error handler must be a function or Exception type")
+            if not callable(f):
+                raise TypeError(
+                    "Error handler must be a function or Exception type")
 
-			self.error_handlers[error] = f
-			return f
+            self.error_handlers[error] = f
+            return f
 
-		return decorator
+        return decorator
